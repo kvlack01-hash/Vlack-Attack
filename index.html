@@ -46,82 +46,122 @@ let timerID = null;
 let currentBeat = 0;
 let currentMid = [];
 
-// --- RHYTHM DATA ---
-const tCym = { 'quarter notes': [1,0,0], 'shuffle': [1,0,1], 'swing': [1,0,0,1,0,1], '3:2 (down)': [1,0,1,0,1,0], '3:2 (up)': [0,1,0,1,0,1], '3:4 v1': [1,1,1,0,1,1,1,0,1,1,1,0], '3:4 v2': [1,0,1,1,1,0,1,1,1,0,1,1], '3:4 v3': [0,1,1,1,0,1,1,1,0,1,1,1], 'shuffle ': [1,0,1], 'swing ': [1,0,0,1,0,1], '3:2 (down) shuffle ': [1,0,1,0,1,0], '3:2 (up) shuffle ': [0,1,0,1,0,1], '3:4 v1 ': [1,1,1,0,1,1,1,0,1,1,1,0], '3:4 v2 ': [1,0,1,1,1,0,1,1,1,0,1,1], '3:4 v3 ': [0,1,1,1,0,1,1,1,0,1,1,1] };
-const tCymPlain = ['quarter notes', 'shuffle', 'swing', '3:2 (down)', '3:2 (up)', '3:4 v1', '3:4 v2', '3:4 v3'];
-const tCymAcc = ['shuffle ', 'swing ', '3:2 (down) shuffle ', '3:2 (up) shuffle ', '3:4 v1 ', '3:4 v2 ', '3:4 v3 '];
-const tFoot = { 'quarter notes': [1,0,0], '2 and 4': [0,0,0,1,0,0], '3:2 (down)': [1,0,1,0,1,0], '3:2 (up)': [0,1,0,1,0,1] };
-const sCym = { 'quarter notes': [1,0,0,0], 'up beats': [0,0,1,0], 'eighth notes': [1,0,1,0], 'e a': [0,1,0,1], '1 e &': [1,1,1,0], 'e & a': [0,1,1,1], '1 & a': [1,0,1,1], '1 e a': [1,1,0,1], 'eighth notes (down)': [1,0,1,0], 'eighth notes (up)': [1,0,1,0], '1 e & ': [1,1,1,0], 'e & a ': [0,1,1,1], '1 & a ': [1,0,1,1], '1 e a ': [1,1,0,1] };
-const sCymPlain = ['quarter notes', 'up beats', 'eighth notes', 'e a', '1 e &', 'e & a', '1 & a', '1 e a'];
-const sCymAcc = ['eighth notes (down)', 'eighth notes (up)', '1 e & ', 'e & a ', '1 & a ', '1 e a '];
-const sFoot = { 'quarter notes': [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0], '2 and 4': [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0], 'eighth notes': [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0] };
+// --- RHYTHM DATA (RENAMED TO MATCH MENUS) ---
+const tCym = { 
+    'quarter notes': [1,0,0], 
+    'shuffle': [1,0,1], 
+    'swing': [1,0,0,1,0,1], 
+    '3:2 (down)': [1,0,1,0,1,0],
+    '3:2 (up)': [0,1,0,1,0,1]
+};
+const tFoot = { 
+    'quarter notes': [1,0,0], 
+    '2 and 4': [0,0,0,1,0,0], 
+    '3:2 (down)': [1,0,1,0,1,0] 
+};
+const sCym = { 
+    'quarter notes': [1,0,0,0], 
+    'up beats': [0,0,1,0], 
+    'eighth notes': [1,0,1,0], 
+    '1 e &': [1,1,1,0],
+    'eighth notes (down)': [1,0,1,0], 
+    'eighth notes (up)': [1,0,1,0]
+};
+const sFoot = { 
+    'quarter notes': [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0], 
+    '2 and 4': [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0], 
+    'eighth notes': [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0] 
+};
 const tMidPool = [[1,0,0], [0,1,0], [1,0,1], [0,0,1], [1,1,0], [0,1,1]];
-const sMidPool = [[1,0,0,0], [0,1,0,0], [0,0,1,0], [0,0,0,1], [1,0,1,0], [0,1,0,1], [1,1,0,0], [0,1,1,0], [0,0,1,1], [1,0,0,1], [1,1,1,0], [0,1,1,1], [1,0,1,1], [1,1,0,1]];
+const sMidPool = [[1,0,0,0], [0,1,0,0], [0,0,1,0], [0,0,0,1], [1,0,1,0], [0,1,0,1]];
 
-// --- NOTATION ---
-// --- INCONSISTENCY-PROOF LOGIC ---
+// --- LOGIC ---
 function getAccentLogic(p, i, h) { 
     if(!document.getElementById('accent-mode').checked || !h) return false; 
-    const isTri = document.getElementById("triplet-mode").checked; 
-    
-    // We convert everything to lowercase and remove weird fraction symbols for the check
     const check = p.toLowerCase();
     const pos = i % 4;
-
-    if(isTri){
+    if(document.getElementById("triplet-mode").checked){
         const p3 = i % 3, p6 = i % 6;
         if(check.includes('shuffle')) return p3 === 0;
         if(check.includes('swing')) return p6 === 0;
-        if(check.includes('3:2')) return (p6 === 0 || p6 === 4);
         return false;
     } else {
-        // This covers "eighth notes (up)", "eighth notes (up)", and "up beats" all at once
         if(check.includes('up')) return pos === 2;
         if(check.includes('down')) return pos === 0;
-        if(check.includes('1 e &')) return pos === 2;
-        if(check.includes('e & a')) return pos === 3;
         return false;
     }
 }
 
-// Update the menu to use standard characters only
 function updateMenus() { 
     const isT = document.getElementById("triplet-mode").checked;
     const isA = document.getElementById("accent-mode").checked;
-    const cS = document.getElementById("cymbal-select");
+    const cS = document.getElementById("cymbal-select"), fS = document.getElementById("foot-select");
     
     cS.innerHTML = "";
+    let cL = isT ? 
+        (isA ? ['shuffle', 'swing'] : ['quarter notes', 'shuffle', '3:2 (down)']) : 
+        (isA ? ['eighth notes (up)', 'eighth notes (down)', '1 e &'] : ['quarter notes', 'up beats', 'eighth notes']);
+    cL.forEach(k => { let o = document.createElement("option"); o.value = k; o.text = k; cS.add(o); });
+
+    fS.innerHTML = "";
+    let fL = isT ? ['quarter notes', '2 and 4', '3:2 (down)'] : ['quarter notes', '2 and 4', 'eighth notes'];
+    fL.forEach(k => { let o = document.createElement("option"); o.value = k; o.text = k; fS.add(o); });
+}
+
+// --- RENDERING ---
+function createNote(v, d, h, b, a=false) { const el = document.getElementById('element-select').value; let k, s, rK, cD = d.replace('r',''), aR = !h||d.includes('r'); if(v===0){ s=1; rK="B/5/r"; if(h) k=(el==='hi-hat')?"G/5/x2":(a?"G/5/d2":"G/5/x2"); } else if(v===1){ k=(b%2===0)?"F/4":"C/5"; s=-1; rK="C/4/r"; } else { k=h?"B/4/x2":"B/4/r"; s=-1; rK="B/4/r"; } const n = new VF.StaveNote({keys:[h? (k||"G/5/x2"):rK], duration:cD+(aR?"r":""), stem_direction:s}); if(h&&v===0&&a&&el==='hi-hat') n.addModifier(new VF.Articulation('ah').setPosition(3), 0); if(cD.includes('d')) VF.Dot.buildAndAttach([n],{all:true}); if(v===2) n.setKeyLine(0,2); return n; }
+
+function generate(f=false) { 
+    const d = document.getElementById("output"); d.innerHTML = ""; 
+    const isT = document.getElementById("triplet-mode").checked, sub = isT?3:4;
+    const r = new VF.Renderer(d, VF.Renderer.Backends.SVG); r.resize(1000, 400);
+    const ctx = r.getContext(), s1 = new VF.Stave(80, 40, 870).addClef("percussion").addTimeSignature("4/4").setContext(ctx).draw();
+    const s2 = new VF.Stave(80, 200, 870); [0,1,3,4].forEach(l=>s2.setConfigForLine(l,{visible:false})); 
+    s2.addClef("percussion").addTimeSignature("4/4").setContext(ctx).draw();
     
-    // We force standard text names here so autocorrect can't mess them up
-    let list = [];
-    if(isT) {
-        list = isA ? ['shuffle', 'swing', '3:2 (down) shuffle'] : ['quarter notes', 'shuffle', '3:2 (down)'];
-    } else {
-        list = isA ? ['eighth notes (up)', 'eighth notes (down)', '1 e &'] : ['quarter notes', 'up beats', 'eighth notes'];
+    if(f||!document.getElementById("freeze-bottom").checked||currentMid.length===0){
+        currentMid=[]; const p = isT?tMidPool:sMidPool;
+        for(let i=0;i<4;i++) currentMid.push(p[Math.floor(Math.random()*p.length)]);
     }
 
-    list.forEach(k => {
-        let o = document.createElement("option");
-        o.value = k;
-        o.text = k;
-        cS.add(o);
-    });
-}
-function createNote(v, d, h, b, a=false) { const el = document.getElementById('element-select').value; let k, s, rK, cD = d.replace('r',''), aR = !h||d.includes('r'); if(v===0){ s=1; rK="B/5/r"; if(h) k=(el==='hi-hat')?"G/5/x2":(a?"G/5/d2":"G/5/x2"); } else if(v===1){ k=(b%2===0)?"F/4":"C/5"; s=-1; rK="C/4/r"; } else { k=h?"B/4/x2":"B/4/r"; s=-1; rK="B/4/r"; } const n = new VF.StaveNote({keys:[h? (k||"G/5/x2"):rK], duration:cD+(aR?"r":""), stem_direction:s}); if(h&&v===0&&a&&el==='hi-hat') n.addModifier(new VF.Articulation('ah').setPosition(3), 0); if(cD.includes('d')) VF.Dot.buildAndAttach([n],{all:true}); if(v===2) n.setKeyLine(0,2); else if(aR){ if(v===1) n.setKeyLine(0,1); if(v===0) n.setKeyLine(0,5); } return n; }
-function generate(f=false) { const d = document.getElementById("output"); d.innerHTML = ""; const isT = document.getElementById("triplet-mode").checked, sub = isT?3:4, tT = 4*sub, r = new VF.Renderer(d, VF.Renderer.Backends.SVG); r.resize(1000, 500); const ctx = r.getContext(), s1 = new VF.Stave(80, 40, 870).addClef("percussion").addTimeSignature("4/4").setContext(ctx).draw(), s2 = new VF.Stave(80, 200, 870); [0,1,3,4].forEach(l=>s2.setConfigForLine(l,{visible:false})); s2.addClef("percussion").addTimeSignature("4/4").setContext(ctx).draw(); new VF.StaveConnector(s1,s2).setType(VF.StaveConnector.type.BRACKET).setContext(ctx).draw(); if(f||!document.getElementById("freeze-bottom").checked||currentMid.length===0){ currentMid=[]; const p = isT?tMidPool:sMidPool; for(let i=0;i<4;i++) currentMid.push(p[Math.floor(Math.random()*p.length)]); } const vD=[[],[],[]], beams=[]; const cN = document.getElementById("cymbal-select").value, fN = document.getElementById("foot-select").value; for(let b=0;b<4;b++){ for(let vI=0;vI<3;vI++){ let sl=[], pat=(vI===0)?(isT?tCym:sCym)[cN]:(vI===2?(isT?tFoot:sFoot)[fN]:currentMid[b]); for(let i=0;i<sub;i++) sl.push(pat[(b*sub+i)%pat.length]); let fLB=true; for(let k=1;k<sub;k++) if(sl[k]!==0) fLB=false; if(fLB){ let cDur=isT?"4d":"4", hit=sl[0]===1, acc=(vI===0)?getAccentLogic(cN,b*sub,hit):false; vD[vI].push(createNote(vI,cDur,hit,b,acc)); } else { let bN=[]; for(let i=0;i<sub;i++){ let h=sl[i]===1, acc=(vI===0)?getAccentLogic(cN,b*sub+i,h):false, fD=isT?"8":"16"; if(!isT){ let eS=0; for(let j=i+1;j<sub;j++) if(sl[j]===0) eS++; else break; if(h){ if(eS===1){fD="8";i+=1;}else if(eS===2){fD="8d";i+=2;}else if(eS===3){fD="4";i+=3;}} else { if(eS===1){fD="8r";i+=1;}else if(eS===2){fD="8dr";i+=2;}else if(eS===3){fD="4r";i+=3;}else fD="16r";} } else if(!h) fD="8r"; let n=createNote(vI,fD,h,b,acc); bN.push(n); vD[vI].push(n); } let nTB=isT?bN:bN.filter(n=>!n.isRest()); if(nTB.length>=2) beams.push(new VF.Beam(nTB)); } } } const voices = vD.map(n=>new VF.Voice({num_beats:tT, beat_value:isT?8:16}).setStrict(false).addTickables(n)); new VF.Formatter().joinVoices([voices[0],voices[1]]).format([voices[0],voices[1]], 800); new VF.Formatter().joinVoices([voices[2]]).format([voices[2]], 800); voices[0].draw(ctx,s1); voices[1].draw(ctx,s1); voices[2].draw(ctx,s2); beams.forEach(b=>b.setContext(ctx).draw()); }
+    const vD=[[],[],[]], beams=[];
+    const cN = document.getElementById("cymbal-select").value, fN = document.getElementById("foot-select").value;
+    
+    // Safety checks to prevent blank screen
+    const cymPool = isT ? tCym : sCym;
+    const footPool = isT ? tFoot : sFoot;
+    const activeCym = cymPool[cN] || [0];
+    const activeFoot = footPool[fN] || [0];
 
-// --- UPDATED AUDIO SECTION ---
+    for(let b=0; b<4; b++){
+        for(let vI=0; vI<3; vI++){
+            let sl = [];
+            let pat = (vI===0) ? activeCym : (vI===2 ? activeFoot : currentMid[b]);
+            for(let i=0; i<sub; i++) sl.push(pat[(b*sub+i)%pat.length]);
+            
+            for(let i=0; i<sub; i++){
+                let h = sl[i]===1, acc=(vI===0)?getAccentLogic(cN, b*sub+i, h):false;
+                let n = createNote(vI, isT?"8":"16", h, b, acc);
+                vD[vI].push(n);
+            }
+        }
+    }
+    const voices = vD.map(n=>new VF.Voice({num_beats:4, beat_value:4}).setStrict(false).addTickables(n));
+    new VF.Formatter().joinVoices(voices).format(voices, 800);
+    voices.forEach(v=>v.draw(ctx, v===voices[2]?s2:s1));
+}
+
+// --- AUDIO ---
 async function loadKit(k) {
-    // Added 'hihat_open' to the list below
     const s = ['kick','snare','hihat','hihat_open','hihat_foot','ride','ride_bell']; 
     const nB = {};
     for (const name of s) {
         try {
             const r = await fetch(`samples/${k}/${name}.wav`);
-            if(!r.ok) throw new Error(`File ${name}.wav not found`);
+            if(!r.ok) throw new Error();
             const aB = await r.arrayBuffer();
             nB[name] = await audioCtx.decodeAudioData(aB);
-        } catch(e) { console.warn(`Missing: ${name}. Using synth fallback.`); }
+        } catch(e) { console.warn(`Missing: ${name} in ${k}`); }
     }
     buffers = nB;
 }
@@ -129,116 +169,64 @@ async function loadKit(k) {
 function playDrum(n, t, isAcc = false) {
     if(!audioCtx) return;
     let sN = n;
-    
-    // Switchboard logic
-    if(isAcc){ 
-        if(n==='ride') sN='ride_bell'; 
-        else if(n==='hihat') sN='hihat_open'; 
-    }
-    
-    // Play the buffer if it exists
-    if(buffers[sN]){ 
-        const s = audioCtx.createBufferSource(); 
-        s.buffer = buffers[sN]; 
-        s.connect(audioCtx.destination); 
-        s.start(t); 
-        return; 
-    }
-    
-    // Fallback: If hihat_open is missing, use regular hihat buffer
-    if(sN==='hihat_open' && buffers['hihat']) {
-        const s = audioCtx.createBufferSource();
-        s.buffer = buffers['hihat'];
-        s.connect(audioCtx.destination);
-        s.start(t);
-        return;
-    }
-
-    // Synth fallbacks (rest of your existing code stays the same)
-    const d = audioCtx.destination;
-    if(n==='kick'){ /* ... your kick synth ... */ }
-    // ... etc
-}
-
-function playDrum(n, t, isAcc = false) {
-    if(!audioCtx) return;
-    let sN = n;
     if(isAcc){ if(n==='ride') sN='ride_bell'; if(n === 'hihat') sN = 'hihat_open'; }
-    if(buffers[sN]){ const s=audioCtx.createBufferSource(); s.buffer=buffers[sN]; s.connect(audioCtx.destination); s.start(t); return; }
-    // Fallback logic
-    if(sN==='ride_bell' && buffers['ride']) { const s=audioCtx.createBufferSource(); s.buffer=buffers['ride']; s.connect(audioCtx.destination); s.start(t); return; }
-    
-    const d = audioCtx.destination;
-    if(n==='kick'){ 
-        const o=audioCtx.createOscillator(), g=audioCtx.createGain(); 
-        o.frequency.setValueAtTime(120,t); o.frequency.exponentialRampToValueAtTime(0.01,t+0.4); 
-        g.gain.setValueAtTime(1.0,t); g.gain.exponentialRampToValueAtTime(0.01,t+0.4); 
-        o.connect(g).connect(d); o.start(t); o.stop(t+0.4); 
+    if(buffers[sN]){ 
+        const s=audioCtx.createBufferSource(); s.buffer=buffers[sN]; s.connect(audioCtx.destination); s.start(t); 
+    } else {
+        const d = audioCtx.destination;
+        if(n==='kick'){ 
+            const o=audioCtx.createOscillator(), g=audioCtx.createGain(); 
+            o.frequency.setValueAtTime(120,t); o.frequency.exponentialRampToValueAtTime(0.01,t+0.4); 
+            g.gain.setValueAtTime(1.0,t); g.gain.exponentialRampToValueAtTime(0.01,t+0.4); 
+            o.connect(g).connect(d); o.start(t); o.stop(t+0.4); 
+        }
+        // ... (rest of your snare/hat synth fallbacks)
     }
-    else if(n==='snare'){ 
-        const b=audioCtx.createBuffer(1,audioCtx.sampleRate*0.1,audioCtx.sampleRate), data=b.getChannelData(0); 
-        for(let i=0;i<b.length;i++) data[i]=Math.random()*2-1; 
-        const s=audioCtx.createBufferSource(), g=audioCtx.createGain(); 
-        s.buffer=b; g.gain.setValueAtTime(0.3,t); g.gain.exponentialRampToValueAtTime(0.01,t+0.15); 
-        s.connect(g).connect(d); s.start(t); 
-    }
-    else if(n.includes('hihat')){ 
-        const b=audioCtx.createBuffer(1,audioCtx.sampleRate*0.05,audioCtx.sampleRate), data=b.getChannelData(0); 
-        for(let i=0;i<b.length;i++) data[i]=Math.random()*2-1; 
-        const s=audioCtx.createBufferSource(), f=audioCtx.createBiquadFilter(), g=audioCtx.createGain(); 
-        f.type="highpass"; f.frequency.value=7000; s.buffer=b; 
-        g.gain.setValueAtTime(0.2,t); g.gain.exponentialRampToValueAtTime(0.01,t+0.05); 
-        s.connect(f).connect(g).connect(d); s.start(t); 
-    }
-    else if(n.includes('ride')){ 
-        const o=audioCtx.createOscillator(), g=audioCtx.createGain(); 
-        o.type='sine'; o.frequency.setValueAtTime(3000,t); 
-        g.gain.setValueAtTime(0.1,t); g.gain.exponentialRampToValueAtTime(0.01,t+0.6); 
-        o.connect(g).connect(d); o.start(t); o.stop(t+0.6); 
-    }
+}
 
 function scheduleSounds(t) {
     const isT = document.getElementById("triplet-mode").checked, sub = isT?3:4;
     const cN = document.getElementById("cymbal-select").value, el = document.getElementById('element-select').value, fN = document.getElementById("foot-select").value;
     const cP = (isT?tCym:sCym)[cN], fP = (isT?tFoot:sFoot)[fN];
 
-    // Main Element (Ride/Hi-Hat/Cowbell)
-    if(cP && cP[currentBeat%cP.length]===1) {
-        // This 'getAccentLogic' part is what tells the app to look for 'open' or 'bell' sounds
-        const isAcc = getAccentLogic(cN, currentBeat, true);
-        playDrum(el==='hi-hat'?'hihat':el, t, isAcc);
-    }
-
-    // Kick and Snare
+    if(cP && cP[currentBeat%cP.length]===1) playDrum(el==='hi-hat'?'hihat':el, t, getAccentLogic(cN, currentBeat, true));
     const bI = Math.floor(currentBeat/sub), sI = currentBeat%sub;
     if(currentMid[bI] && currentMid[bI][sI]===1) playDrum(bI%2===0?'kick':'snare', t);
-
-    // Left Foot (always uses the 'chick' sound)
     if(fP && fP[currentBeat%fP.length]===1) playDrum('hihat_foot', t);
 }
 
 function scheduler() {
-    const tempo = document.getElementById('tempo-slider').value, pocket = document.getElementById('pocket-slider').value/100, isT = document.getElementById("triplet-mode").checked;
-    const spb = 60.0/tempo, sps = isT?(spb/3):(spb/4);
+    const tempo = document.getElementById('tempo-slider').value, isT = document.getElementById("triplet-mode").checked;
+    const sps = isT ? (60/tempo/3) : (60/tempo/4);
     while (nextNoteTime < audioCtx.currentTime + 0.1) {
-        let sI = currentBeat%(isT?3:4), aPT = nextNoteTime;
-        if(!isT && (sI===1||sI===3)) aPT += (sps*pocket);
-        scheduleSounds(aPT); nextNoteTime += sps; currentBeat = (currentBeat+1)%(isT?12:16);
+        scheduleSounds(nextNoteTime); nextNoteTime += sps; currentBeat = (currentBeat+1)%(isT?12:16);
     }
     timerID = setTimeout(scheduler, 25);
 }
 
-window.onload = async () => {
+window.onload = () => {
     updateMenus();
     document.querySelectorAll("select, input").forEach(el => {
-        el.onchange = () => {
-            if (el.id === "tempo-slider" || el.id === "pocket-slider") return;
-            if (el.id === "triplet-mode" || el.id === "accent-mode") {
-                updateMenus();
-                document.getElementById("pocket-slider").disabled = document.getElementById("triplet-mode").checked;
-            }
-            generate();
+        el.onchange = () => { 
+            if(el.id==="triplet-mode"||el.id==="accent-mode") updateMenus();
+            generate(); 
         };
+    });
+    document.getElementById("gen-btn").onclick = () => generate(true);
+    document.getElementById('tempo-slider').oninput = (e) => document.getElementById('bpm-display').innerText = e.target.value;
+    document.getElementById('kit-select').onchange = async (e) => {
+        if (!audioCtx) audioCtx = new AudioContext();
+        await loadKit(e.target.value);
+    };
+    document.getElementById('metro-btn').onclick = async function() {
+        if (!audioCtx) audioCtx = new AudioContext();
+        if (audioCtx.state === 'suspended') await audioCtx.resume();
+        isPlaying = !isPlaying;
+        if (isPlaying) { currentBeat = 0; nextNoteTime = audioCtx.currentTime; scheduler(); this.innerText = "Stop"; }
+        else { clearTimeout(timerID); this.innerText = "Play Beat"; }
+    };
+    generate();
+};
     });
     document.getElementById("gen-btn").onclick = () => generate(true);
     document.getElementById('tempo-slider').oninput = (e) => document.getElementById('bpm-display').innerText = e.target.value;
