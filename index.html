@@ -2,15 +2,16 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Vlack Attack - Fixed V1.9.4</title>
+    <title>Vlack Attack v1.9.5 - Beam Force</title>
     <script src="https://cdn.jsdelivr.net/npm/vexflow@4.2.2/build/cjs/vexflow.js"></script>
     <style>
-        body { font-family: sans-serif; text-align: center; background: #f4f4f9; }
-        #output { background: #fff; margin: 20px auto; width: 950px; border: 2px solid #ddd; border-radius: 10px; }
-        .controls { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; padding: 20px; background: #eee; }
-        .control-group { display: flex; flex-direction: column; align-items: flex-start; }
-        label { font-size: 10px; font-weight: bold; color: #666; }
-        /* DO NOT ADD DISPLAY:NONE RULES HERE */
+        body { font-family: 'Segoe UI', sans-serif; text-align: center; background: #f0f2f5; padding: 20px; }
+        #output { background: white; margin: 20px auto; min-height: 400px; width: 900px; border: 1px solid #ddd; border-radius: 12px; }
+        .controls { display: flex; justify-content: center; gap: 15px; padding: 20px; background: #f8f9fa; border-radius: 12px; flex-wrap: wrap; }
+        .control-group { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; }
+        button, select { padding: 8px 12px; border-radius: 6px; border: 1px solid #ccc; font-weight: bold; }
+        .label-text { font-size: 0.7rem; font-weight: bold; color: #666; text-transform: uppercase; }
+        #gen-btn { background: #27ae60; color: white; border: none; }
     </style>
 </head>
 <body>
@@ -18,11 +19,11 @@
 <div id="output"></div>
 
 <div class="controls">
-    <div class="control-group"><label>ELEMENT</label><select id="el-sel"><option value="ride">Ride</option><option value="hi-hat">Hi-Hat</option></select></div>
-    <div class="control-group"><label>RIDE/HH PATTERN</label><select id="cym-sel"></select></div>
-    <div class="control-group"><label>LEFT FOOT</label><select id="foot-sel"></select></div>
-    <button id="gen-btn" style="background:#27ae60; color:white; border:none; padding:10px; border-radius:5px;">Randomize Bottom</button>
-    <div class="control-group">
+    <div class="control-group"><span class="label-text">Ride/HH</span><select id="el-sel"><option value="ride">Ride</option><option value="hi-hat">Hi-Hat</option></select></div>
+    <div class="control-group"><span class="label-text">Ride Pattern</span><select id="cym-sel"></select></div>
+    <div class="control-group"><span class="label-text">Left Foot</span><select id="foot-sel"></select></div>
+    <button id="gen-btn">New Kick/Snare</button>
+    <div style="display: flex; gap: 15px; align-items: center; background: #fff; padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
         <label><input type="checkbox" id="trip-chk"> Triplet Mode</label>
         <label><input type="checkbox" id="acc-chk"> Accents</label>
     </div>
@@ -32,101 +33,112 @@
 const VF = Vex.Flow;
 let currentMid = [];
 
-function refreshInterface() {
+// DATA POOLS - Hardcoded inside to prevent scope loss
+const POOLS = {
+    sCym: { 'quarter notes': [1,0,0,0], 'up beats': [0,0,1,0], 'eighth notes': [1,0,1,0], '1 e &': [1,1,1,0] },
+    tCym: { 'quarter notes': [1,0,0], 'shuffle': [1,0,1], 'swing': [1,0,0,1,0,1], '3:2 (down)': [1,0,1,0,1,0] },
+    sFoot: { 'quarter notes': [1,0,0,0], '2 and 4': [0,0,0,0,1,0,0,0], 'eighth notes': [1,0,1,0] },
+    tFoot: { 'quarter notes': [1,0,0], '2 and 4': [0,0,0,1,0,0], '3:2 (down)': [1,0,1,0,1,0] }
+};
+
+function updateMenus() {
     const isT = document.getElementById("trip-chk").checked;
-    const isA = document.getElementById("acc-chk").checked;
     const cS = document.getElementById("cym-sel");
     const fS = document.getElementById("foot-sel");
     
-    // Explicit Data Pools
-    const tPatterns = ['quarter notes', 'shuffle', '3:2 (down)', 'swing'];
-    const sPatterns = ['quarter notes', 'up beats', 'eighth notes', '1 e &'];
-    const ftPatterns = isT ? ['quarter notes', '2 and 4', '3:2 (down)'] : ['quarter notes', '2 and 4', 'eighth notes'];
-
-    cS.innerHTML = "";
-    fS.innerHTML = "";
+    cS.innerHTML = ""; fS.innerHTML = "";
     
-    const activeCym = isT ? tPatterns : sPatterns;
-    activeCym.forEach(p => cS.add(new Option(p, p)));
-    ftPatterns.forEach(p => fS.add(new Option(p, p)));
+    const cymList = isT ? Object.keys(POOLS.tCym) : Object.keys(POOLS.sCym);
+    const footList = isT ? Object.keys(POOLS.tFoot) : Object.keys(POOLS.sFoot);
+    
+    cymList.forEach(k => cS.add(new Option(k, k)));
+    footList.forEach(k => fS.add(new Option(k, k)));
 }
 
-function runNotation(forceNew = false) {
+function generate(forceNew = false) {
     const div = document.getElementById("output");
     div.innerHTML = "";
     const isT = document.getElementById("trip-chk").checked;
     const sub = isT ? 3 : 4;
 
     const renderer = new VF.Renderer(div, VF.Renderer.Backends.SVG);
-    renderer.resize(950, 400);
+    renderer.resize(900, 400);
     const ctx = renderer.getContext();
 
-    const stave = new VF.Stave(10, 40, 900).addClef("percussion").addTimeSignature("4/4").setContext(ctx).draw();
+    const stave = new VF.Stave(50, 40, 800).addClef("percussion").addTimeSignature("4/4").setContext(ctx).draw();
 
-    // Data Mapping
-    const cymMap = { 'quarter notes': [1,0,0,0], 'shuffle': [1,0,1], 'swing': [1,0,0,1,0,1], '3:2 (down)': [1,0,1,0,1,0], 'up beats': [0,0,1,0], 'eighth notes': [1,0,1,0], '1 e &': [1,1,1,0] };
-    const pool = isT ? [[1,0,0], [1,0,1], [0,0,1]] : [[1,0,1,0], [0,1,0,1], [1,0,0,1]];
-
+    // 1. Get Patterns
+    const cymKey = document.getElementById("cym-sel").value;
+    const footKey = document.getElementById("foot-sel").value;
+    const cymPat = isT ? POOLS.tCym[cymKey] : POOLS.sCym[cymKey];
+    
+    // 2. Generate Kick/Snare Pool if empty
     if (forceNew || currentMid.length === 0) {
         currentMid = [];
+        const pool = isT ? [[1,0,0], [0,1,0], [1,0,1]] : [[1,0,0,0], [0,1,0,0], [1,0,1,0]];
         for (let i = 0; i < 4; i++) currentMid.push(pool[Math.floor(Math.random() * pool.length)]);
     }
 
-    const cPat = cymMap[document.getElementById("cym-sel").value] || [1,0,0,0];
-    const notesTop = [];
-    const notesBot = [];
+    const voiceTopNotes = [];
+    const voiceBotNotes = [];
     const beams = [];
 
+    // 3. Loop through 4 beats
     for (let b = 0; b < 4; b++) {
-        let beatGroupTop = [];
-        let beatGroupBot = [];
-        
+        let beatTop = [];
+        let beatBot = [];
+
         for (let i = 0; i < sub; i++) {
-            // TOP VOICE (Cymbals) - Duration must be 8 for triplets, 16 for straight to beam
-            let cHit = cPat[(b * sub + i) % cPat.length] === 1;
-            let cNote = new VF.StaveNote({ 
-                keys: [cHit ? "G/5/x2" : "G/5/r"], 
-                duration: isT ? "8" : "16", 
-                stem_direction: 1 
+            const index = b * sub + i;
+            
+            // TOP VOICE (Cymbals)
+            const cHit = cymPat[index % cymPat.length] === 1;
+            const tNote = new VF.StaveNote({
+                keys: [cHit ? "G/5/x2" : "G/5/r"],
+                duration: isT ? "8" : "16",
+                stem_direction: 1
             });
-            notesTop.push(cNote);
-            beatGroupTop.push(cNote);
+            voiceTopNotes.push(tNote);
+            beatTop.push(tNote);
 
             // BOTTOM VOICE (Kick/Snare)
-            let mHit = currentMid[b][i % currentMid[b].length] === 1;
-            let mNote = new VF.StaveNote({ 
-                keys: [mHit ? (b % 2 === 0 ? "F/4" : "C/5") : "C/4/r"], 
-                duration: isT ? "8" : "16", 
-                stem_direction: -1 
+            const mHit = currentMid[b][i % currentMid[b].length] === 1;
+            const bNote = new VF.StaveNote({
+                keys: [mHit ? (b % 2 === 0 ? "F/4" : "C/5") : "C/4/r"],
+                duration: isT ? "8" : "16",
+                stem_direction: -1
             });
-            notesBot.push(mNote);
-            beatGroupBot.push(mNote);
+            voiceBotNotes.push(bNote);
+            beatBot.push(bNote);
         }
 
-        // Apply Beams to this specific beat
-        const topHits = beatGroupTop.filter(n => !n.isRest());
-        if (topHits.length > 1) beams.push(new VF.Beam(topHits));
-        
-        const botHits = beatGroupBot.filter(n => !n.isRest());
-        if (botHits.length > 1) beams.push(new VF.Beam(botHits));
+        // Create Beams for the beat (Filter out rests)
+        const tHits = beatTop.filter(n => !n.isRest());
+        if (tHits.length > 1) beams.push(new VF.Beam(tHits));
+
+        const bHits = beatBot.filter(n => !n.isRest());
+        if (bHits.length > 1) beams.push(new VF.Beam(bHits));
     }
 
-    const v1 = new VF.Voice({ num_beats: 4, beat_value: 4 }).setStrict(false).addTickables(notesTop);
-    const v2 = new VF.Voice({ num_beats: 4, beat_value: 4 }).setStrict(false).addTickables(notesBot);
+    // 4. Formatting
+    const v1 = new VF.Voice({ num_beats: 4, beat_value: 4 }).setStrict(false).addTickables(voiceTopNotes);
+    const v2 = new VF.Voice({ num_beats: 4, beat_value: 4 }).setStrict(false).addTickables(voiceBotNotes);
+    
+    new VF.Formatter().joinVoices([v1, v2]).format([v1, v2], 700);
 
-    new VF.Formatter().joinVoices([v1, v2]).format([v1, v2], 800);
     v1.draw(ctx, stave);
     v2.draw(ctx, stave);
-    beams.forEach(b => b.setContext(ctx).draw());
+    beams.forEach(bm => bm.setContext(ctx).draw());
 }
 
 window.onload = () => {
-    refreshInterface();
-    document.getElementById("trip-chk").onchange = () => { refreshInterface(); runNotation(); };
-    document.getElementById("el-sel").onchange = () => runNotation();
-    document.getElementById("cym-sel").onchange = () => runNotation();
-    document.getElementById("gen-btn").onclick = () => runNotation(true);
-    runNotation();
+    updateMenus();
+    document.getElementById("trip-chk").onchange = () => { updateMenus(); generate(); };
+    document.getElementById("cym-sel").onchange = () => generate();
+    document.getElementById("foot-sel").onchange = () => generate();
+    document.getElementById("el-sel").onchange = () => generate();
+    document.getElementById("gen-btn").onclick = () => generate(true);
+    generate();
 };
 </script>
 </body>
