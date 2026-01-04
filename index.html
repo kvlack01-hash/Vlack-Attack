@@ -239,72 +239,46 @@ function generate(forceRandom = false) {
 
 // --- UPDATED AUDIO ENGINE ---
 
-// 1. Helper to load all sounds for a selected kit
-async function loadKit(kitName) {
-    const sounds = ['kick', 'snare', 'hihat', 'hihat_open', 'hihat_foot', 'ride', 'ride_bell']; 
-    const newBuffers = {};
+async function loadKit(k) {
+    const s = ['kick','snare','hihat','hihat_open','hihat_foot','ride','ride_bell']; 
+    const nB = {};
     const btn = document.getElementById('metro-btn');
-    const originalText = btn.innerText;
-    
-    btn.innerText = "Loading " + kitName.toUpperCase() + "...";
+    const oldT = btn.innerText;
+    btn.innerText = "Loading " + k.toUpperCase() + "...";
 
-    for (const name of sounds) {
+    for (const name of s) {
         try {
-            const response = await fetch(`samples/${kitName}/${name}.wav`);
-            if(!response.ok) throw new Error();
-            const arrayBuffer = await response.arrayBuffer();
-            newBuffers[name] = await audioCtx.decodeAudioData(arrayBuffer);
+            const r = await fetch(`samples/${k}/${name}.wav`);
+            if(!r.ok) throw new Error();
+            const aB = await r.arrayBuffer();
+            nB[name] = await audioCtx.decodeAudioData(aB);
         } catch(e) { 
-            console.warn(`Missing: ${kitName}/${name}.wav. Using synth fallback.`); 
+            console.warn(`Could not load ${name}.wav from folder: ${k}`); 
         }
     }
-    buffers = newBuffers;
-    btn.innerText = originalText;
+    buffers = nB; // This fills the "silent" voices with sound
+    btn.innerText = oldT;
 }
 
 // 2. Updated playDrum to use Samples first
-function playDrum(name, time, isAcc = false) {
-    if (!audioCtx) return;
-    const dest = audioCtx.destination;
+function playDrum(n, t, isAcc = false) {
+    if(!audioCtx) return;
     
-    // Switchboard: determine the specific sample name
-    let sampleName = name;
-    if (isAcc) {
-        if (name === 'ride') sampleName = 'ride_bell';
-        if (name === 'hihat') sampleName = 'hihat_open';
+    let sN = n;
+    // Map accents to your specific filenames
+    if(isAcc){ 
+        if(n === 'ride') sN = 'ride_bell'; 
+        if(n === 'hihat') sN = 'hihat_open'; 
     }
-
-    // IF WE HAVE A SAMPLE, PLAY IT
-    if (buffers[sampleName]) {
-        const source = audioCtx.createBufferSource();
-        source.buffer = buffers[sampleName];
-        source.connect(dest);
-        source.start(time);
-        return; // Stop here if sample played
-    }
-
-    // FALLBACKS (The "Bings and Blips")
-    if (name === 'kick') {
-        const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
-        osc.frequency.setValueAtTime(120, time); 
-        osc.frequency.exponentialRampToValueAtTime(0.01, time + 0.4);
-        gain.gain.setValueAtTime(1.0, time); 
-        gain.gain.exponentialRampToValueAtTime(0.01, time + 0.4);
-        osc.connect(gain).connect(dest); osc.start(time); osc.stop(time + 0.4);
-    } else if (name === 'snare') {
-        const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.1, audioCtx.sampleRate), data = buf.getChannelData(0);
-        for (let i = 0; i < buf.length; i++) data[i] = Math.random() * 2 - 1;
-        const src = audioCtx.createBufferSource(), gain = audioCtx.createGain();
-        src.buffer = buf; gain.gain.setValueAtTime(0.3, time); 
-        gain.gain.exponentialRampToValueAtTime(0.01, time + 0.15);
-        src.connect(gain).connect(dest); src.start(time);
-    } else if (name === 'hihat' || name === 'ride') {
-        // Simple synth sizzle for hats/ride
-        const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
-        osc.type = 'sine'; osc.frequency.setValueAtTime(name === 'hihat' ? 7000 : 3000, time);
-        gain.gain.setValueAtTime(0.1, time); gain.gain.exponentialRampToValueAtTime(0.01, time + 0.3);
-        osc.connect(gain).connect(dest); osc.start(time); osc.stop(time + 0.3);
-    }
+    
+    // If the kit loaded correctly, this will play the .wav
+    if(buffers[sN]){ 
+        const s = audioCtx.createBufferSource(); 
+        s.buffer = buffers[sN]; 
+        s.connect(audioCtx.destination); 
+        s.start(t); 
+    } 
+    // If buffers[sN] is empty, nothing happens (no bings!)
 }
 
 function scheduleSounds(time) {
@@ -365,9 +339,22 @@ document.getElementById('kit-select').onchange = async (e) => {
 document.getElementById('metro-btn').onclick = async function() {
     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     if (audioCtx.state === 'suspended') await audioCtx.resume();
+
+    // FORCE LOAD if buffers are empty
+    if (Object.keys(buffers).length === 0) {
+        await loadKit(document.getElementById('kit-select').value);
+    }
+
     isPlaying = !isPlaying;
-    if (isPlaying) { currentBeat = 0; nextNoteTime = audioCtx.currentTime; scheduler(); this.innerText = "Stop Playback"; this.style.background = "#e74c3c"; }
-    else { clearTimeout(timerID); this.innerText = "Play Beat"; this.style.background = "#3498db"; }
+    if (isPlaying) { 
+        currentBeat = 0; 
+        nextNoteTime = audioCtx.currentTime; 
+        scheduler(); 
+        this.innerText = "Stop Playback"; 
+    } else { 
+        clearTimeout(timerID); 
+        this.innerText = "Play Beat"; 
+    }
 };
 </script>
 </body>
