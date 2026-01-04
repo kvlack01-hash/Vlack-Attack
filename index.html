@@ -90,38 +90,53 @@ function getAccentLogic(p, i, h) {
 }
 
 // 3. NOTATION
-function createNote(v, d, h, b, a=false) {
+function createNote(v, d, h, b, a = false) {
     const el = document.getElementById('element-select').value;
     let k, s, rK;
-    if(v===0) { s=1; rK="B/5/r"; k=(el==='hi-hat')?"G/5/x2":(a?"G/5/d2":"G/5/x2"); }
-    else if(v===1) { k=(b%2===0)?"F/4":"C/5"; s=-1; rK="C/4/r"; }
-    else { k="B/4/x2"; s=-1; rK="B/4/r"; }
+    // v0: Top, v1: Mid, v2: Foot
+    if (v === 0) { 
+        s = 1; rK = "B/5/r"; 
+        k = (el === 'hi-hat') ? "G/5/x2" : (a ? "G/5/d2" : "G/5/x2"); 
+    } else if (v === 1) { 
+        k = (b % 2 === 0) ? "F/4" : "C/5"; 
+        s = -1; rK = "C/4/r"; 
+    } else { 
+        k = "B/4/x2"; s = -1; rK = "B/4/r"; 
+    }
 
-    const note = new VF.StaveNote({keys: [h ? k : rK], duration: d + (h ? "" : "r"), stem_direction: s});
-    if(h && v===0 && a && el==='hi-hat') note.addModifier(new VF.Articulation('ah').setPosition(3), 0);
-    if(v===2) note.setKeyLine(0, 2);
+    // We pass the 'd' (duration) directly. 
+    // If it's a rest, 'd' will look like "16r" or "8r".
+    const note = new VF.StaveNote({
+        keys: [h ? k : rK],
+        duration: d,
+        stem_direction: s
+    });
+
+    if (h && v === 0 && a && el === 'hi-hat') note.addModifier(new VF.Articulation('ah').setPosition(3), 0);
+    if (v === 2) note.setKeyLine(0, 2);
+
     return note;
 }
 
-function generate(f=false) {
+function generate(f = false) {
     const div = document.getElementById("output");
     div.innerHTML = "";
     const isT = document.getElementById("triplet-mode").checked;
     const sub = isT ? 3 : 4;
-    
+
     const renderer = new VF.Renderer(div, VF.Renderer.Backends.SVG);
     renderer.resize(950, 450);
     const ctx = renderer.getContext();
-    
+
     const stave1 = new VF.Stave(50, 40, 850).addClef("percussion").addTimeSignature("4/4").setContext(ctx).draw();
     const stave2 = new VF.Stave(50, 200, 850);
-    [0,1,3,4].forEach(l => stave2.setConfigForLine(l, {visible: false}));
+    [0, 1, 3, 4].forEach(l => stave2.setConfigForLine(l, { visible: false }));
     stave2.addClef("percussion").addTimeSignature("4/4").setContext(ctx).draw();
 
-    if(f || !document.getElementById("freeze-bottom").checked || currentMid.length === 0) {
+    if (f || !document.getElementById("freeze-bottom").checked || currentMid.length === 0) {
         currentMid = [];
         const pool = isT ? tMidPool : sMidPool;
-        for(let i=0; i<4; i++) currentMid.push(pool[Math.floor(Math.random()*pool.length)]);
+        for (let i = 0; i < 4; i++) currentMid.push(pool[Math.floor(Math.random() * pool.length)]);
     }
 
     const cymVal = document.getElementById("cymbal-select").value;
@@ -129,47 +144,45 @@ function generate(f=false) {
     const cymPat = (isT ? tCym : sCym)[cymVal] || [0];
     const footPat = (isT ? tFoot : sFoot)[footVal] || [0];
 
-    const vD = [[],[],[]];
+    const vD = [[], [], []];
     const beams = [];
 
-    for(let b=0; b<4; b++) {
-        for(let vI=0; vI<3; vI++) {
-            let pat = (vI===0) ? cymPat : (vI===2 ? footPat : currentMid[b]);
-            let beatNotes = []; 
-            
-            for(let i=0; i<sub; i++) {
-                let hit = pat[(b*sub+i) % pat.length] === 1;
-                let acc = (vI===0) ? getAccentLogic(cymVal, b*sub+i, hit) : false;
-                
-                // FIXED FOOT NOTATION: Foot (vI === 2) now uses 8th notes for better readability
-                let dur = isT ? "8" : (vI === 2 ? "8" : "16"); 
-                
-                // If it's a rest, add 'r' to duration
-                let finalDur = hit ? dur : dur + "r";
-                
+    for (let b = 0; b < 4; b++) {
+        for (let vI = 0; vI < 3; vI++) {
+            let pat = (vI === 0) ? cymPat : (vI === 2 ? footPat : currentMid[b]);
+            let beatNotes = [];
+
+            for (let i = 0; i < sub; i++) {
+                let hit = pat[(b * sub + i) % pat.length] === 1;
+                let acc = (vI === 0) ? getAccentLogic(cymVal, b * sub + i, hit) : false;
+
+                // Set duration: 8th notes for Triplets/Foot, 16ths for Straight Kick/Snare
+                let baseDur = isT ? "8" : (vI === 2 ? "8" : "16");
+                let finalDur = hit ? baseDur : baseDur + "r";
+
                 let note = createNote(vI, finalDur, hit, b, acc);
                 vD[vI].push(note);
                 beatNotes.push(note);
             }
 
-            // MANUAL BEAMING: Only beam actual hits, ignore rests
-            let beamable = beatNotes.filter(n => !n.isRest());
-            if (beamable.length > 1) {
-                beams.push(new VF.Beam(beamable));
+            // BEAMING LOGIC:
+            // 1. Filter out anything that is a rest
+            const hitsOnly = beatNotes.filter(n => !n.isRest());
+            // 2. Only beam if there are at least 2 hits in this beat
+            if (hitsOnly.length > 1) {
+                beams.push(new VF.Beam(hitsOnly));
             }
         }
     }
 
-    const voices = vD.map(n => new VF.Voice({num_beats: 4, beat_value: 4}).setStrict(false).addTickables(n));
-    
-    // Format all voices together so they align vertically
+    const voices = vD.map(n => new VF.Voice({ num_beats: 4, beat_value: 4 }).setStrict(false).addTickables(n));
     new VF.Formatter().joinVoices(voices).format(voices, 750);
-    
+
     voices[0].draw(ctx, stave1);
     voices[1].draw(ctx, stave1);
     voices[2].draw(ctx, stave2);
 
-    // Draw manual beams
+    // CRITICAL: Draw beams AFTER formatting and drawing voices
     beams.forEach(b => b.setContext(ctx).draw());
 }
 
