@@ -239,46 +239,67 @@ function generate(forceRandom = false) {
 
 // --- UPDATED AUDIO ENGINE ---
 
-async function loadKit(k) {
-    const s = ['kick','snare','hihat','hihat_open','hihat_foot','ride','ride_bell']; 
-    const nB = {};
-    const btn = document.getElementById('metro-btn');
-    const oldT = btn.innerText;
-    btn.innerText = "Loading " + k.toUpperCase() + "...";
+async function loadKit(kitName) {
+    // 1. Match these names EXACTLY to your filenames
+    const names = ['kick', 'snare', 'hihat', 'hihat_open', 'hihat_foot', 'ride', 'ride_bell'];
+    const newBuffers = {};
 
-    for (const name of s) {
+    console.log(`--- Starting Load for Kit: ${kitName} ---`);
+
+    for (const name of names) {
         try {
-            const r = await fetch(`samples/${k}/${name}.wav`);
-            if(!r.ok) throw new Error();
-            const aB = await r.arrayBuffer();
-            nB[name] = await audioCtx.decodeAudioData(aB);
-        } catch(e) { 
-            console.warn(`Could not load ${name}.wav from folder: ${k}`); 
+            // Note the path: samples/[kit]/[name].wav
+            const response = await fetch(`samples/${kitName}/${name}.wav`);
+            
+            if (!response.ok) {
+                console.error(`❌ Failed to find: samples/${kitName}/${name}.wav (Status: ${response.status})`);
+                continue;
+            }
+
+            const arrayBuffer = await response.arrayBuffer();
+            newBuffers[name] = await audioCtx.decodeAudioData(arrayBuffer);
+            console.log(`✅ Loaded: ${name}.wav`);
+        } catch (e) {
+            console.error(`❌ Error decoding: ${name}.wav`, e);
         }
     }
-    buffers = nB; // This fills the "silent" voices with sound
-    btn.innerText = oldT;
+
+    buffers = newBuffers;
+    console.log("--- Load Complete. Buffers filled: ", Object.keys(buffers), " ---");
 }
 
 // 2. Updated playDrum to use Samples first
-function playDrum(n, t, isAcc = false) {
-    if(!audioCtx) return;
-    
-    let sN = n;
-    // Map accents to your specific filenames
-    if(isAcc){ 
-        if(n === 'ride') sN = 'ride_bell'; 
-        if(n === 'hihat') sN = 'hihat_open'; 
+function playDrum(name, time, isAccent = false) {
+    if (!audioCtx) return;
+
+    let sampleID = name;
+
+    // Mapping logic for accents
+    if (isAccent) {
+        if (name === 'ride') sampleID = 'ride_bell';
+        if (name === 'hihat') sampleID = 'hihat_open';
     }
-    
-    // If the kit loaded correctly, this will play the .wav
-    if(buffers[sN]){ 
-        const s = audioCtx.createBufferSource(); 
-        s.buffer = buffers[sN]; 
-        s.connect(audioCtx.destination); 
-        s.start(t); 
-    } 
-    // If buffers[sN] is empty, nothing happens (no bings!)
+
+    // Try to play the sample
+    if (buffers[sampleID]) {
+        const source = audioCtx.createBufferSource();
+        source.buffer = buffers[sampleID];
+        source.connect(audioCtx.destination);
+        source.start(time);
+    } else {
+        // Only the top voice gets a 'bing' so you know the rhythm is working
+        if (name === 'ride' || name === 'hihat') {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(name === 'hihat' ? 8000 : 3000, time);
+            gain.gain.setValueAtTime(0.1, time);
+            gain.gain.exponentialRampToValueAtTime(0.01, time + 0.1);
+            osc.connect(gain).connect(audioCtx.destination);
+            osc.start(time);
+            osc.stop(time + 0.1);
+        }
+    }
 }
 
 function scheduleSounds(time) {
