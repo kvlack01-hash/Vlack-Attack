@@ -104,11 +104,10 @@ function createNote(v, d, h, b, a = false) {
         k = "B/4/x2"; s = -1; rK = "B/4/r"; 
     }
 
-    // We pass the 'd' (duration) directly. 
-    // If it's a rest, 'd' will look like "16r" or "8r".
+    // Explicitly create the note
     const note = new VF.StaveNote({
         keys: [h ? k : rK],
-        duration: d,
+        duration: d, // Ensure this is like "16" or "16r"
         stem_direction: s
     });
 
@@ -116,6 +115,75 @@ function createNote(v, d, h, b, a = false) {
     if (v === 2) note.setKeyLine(0, 2);
 
     return note;
+}
+
+function generate(f = false) {
+    const div = document.getElementById("output");
+    div.innerHTML = "";
+    const isT = document.getElementById("triplet-mode").checked;
+    const sub = isT ? 3 : 4;
+
+    const renderer = new VF.Renderer(div, VF.Renderer.Backends.SVG);
+    renderer.resize(950, 450);
+    const ctx = renderer.getContext();
+
+    const stave1 = new VF.Stave(50, 40, 850).addClef("percussion").addTimeSignature("4/4").setContext(ctx).draw();
+    const stave2 = new VF.Stave(50, 200, 850);
+    [0, 1, 3, 4].forEach(l => stave2.setConfigForLine(l, { visible: false }));
+    stave2.addClef("percussion").addTimeSignature("4/4").setContext(ctx).draw();
+
+    if (f || !document.getElementById("freeze-bottom").checked || currentMid.length === 0) {
+        currentMid = [];
+        const pool = isT ? tMidPool : sMidPool;
+        for (let i = 0; i < 4; i++) currentMid.push(pool[Math.floor(Math.random() * pool.length)]);
+    }
+
+    const cymVal = document.getElementById("cymbal-select").value;
+    const footVal = document.getElementById("foot-select").value;
+    const cymPat = (isT ? tCym : sCym)[cymVal] || [0];
+    const footPat = (isT ? tFoot : sFoot)[footVal] || [0];
+
+    const vD = [[], [], []];
+    const beams = [];
+
+    for (let b = 0; b < 4; b++) {
+        for (let vI = 0; vI < 3; vI++) {
+            let pat = (vI === 0) ? cymPat : (vI === 2 ? footPat : currentMid[b]);
+            let beatNotes = [];
+
+            for (let i = 0; i < sub; i++) {
+                let hit = pat[(b * sub + i) % pat.length] === 1;
+                let acc = (vI === 0) ? getAccentLogic(cymVal, b * sub + i, hit) : false;
+
+                let baseDur = isT ? "8" : (vI === 2 ? "8" : "16");
+                let finalDur = hit ? baseDur : baseDur + "r";
+
+                let note = createNote(vI, finalDur, hit, b, acc);
+                vD[vI].push(note);
+                beatNotes.push(note);
+            }
+
+            // ONLY beam if there are at least 2 hits in this 1-beat group
+            const hitsInBeat = beatNotes.filter(n => !n.isRest());
+            if (hitsInBeat.length > 1) {
+                beams.push(new VF.Beam(hitsInBeat));
+            }
+        }
+    }
+
+    // Format voices with a strict 4/4 time frame
+    const voices = vD.map(n => new VF.Voice({ num_beats: 4, beat_value: 4 }).setStrict(false).addTickables(n));
+    new VF.Formatter().joinVoices(voices).format(voices, 750);
+
+    // Final Draw
+    voices[0].draw(ctx, stave1);
+    voices[1].draw(ctx, stave1);
+    voices[2].draw(ctx, stave2);
+    
+    // Draw Beams
+    beams.forEach(b => b.setContext(ctx).draw());
+    
+    console.log("Beams generated: ", beams.length); 
 }
 
 function generate(f = false) {
