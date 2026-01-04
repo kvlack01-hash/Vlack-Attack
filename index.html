@@ -126,6 +126,10 @@ function generate(f = false) {
     const renderer = new VF.Renderer(div, VF.Renderer.Backends.SVG);
     renderer.resize(950, 450);
     const ctx = renderer.getContext();
+    
+    // Set a thicker default stroke for visibility
+    ctx.setStrokeStyle("#000");
+    ctx.setLineWidth(1);
 
     const stave1 = new VF.Stave(50, 40, 850).addClef("percussion").addTimeSignature("4/4").setContext(ctx).draw();
     const stave2 = new VF.Stave(50, 200, 850);
@@ -155,6 +159,7 @@ function generate(f = false) {
                 let hit = pat[(b * sub + i) % pat.length] === 1;
                 let acc = (vI === 0) ? getAccentLogic(cymVal, b * sub + i, hit) : false;
 
+                // Duration logic: must be 8 or 16 (no 4s) to allow beaming
                 let baseDur = isT ? "8" : (vI === 2 ? "8" : "16");
                 let finalDur = hit ? baseDur : baseDur + "r";
 
@@ -163,27 +168,27 @@ function generate(f = false) {
                 beatNotes.push(note);
             }
 
-            // ONLY beam if there are at least 2 hits in this 1-beat group
-            const hitsInBeat = beatNotes.filter(n => !n.isRest());
-            if (hitsInBeat.length > 1) {
-                beams.push(new VF.Beam(hitsInBeat));
+            // BEAMING: Collect only non-rests within this beat
+            const hitsOnly = beatNotes.filter(n => !n.isRest());
+            if (hitsOnly.length > 1) {
+                const bobj = new VF.Beam(hitsOnly);
+                beams.push(bobj);
             }
         }
     }
 
-    // Format voices with a strict 4/4 time frame
     const voices = vD.map(n => new VF.Voice({ num_beats: 4, beat_value: 4 }).setStrict(false).addTickables(n));
     new VF.Formatter().joinVoices(voices).format(voices, 750);
 
-    // Final Draw
+    // Draw everything
     voices[0].draw(ctx, stave1);
     voices[1].draw(ctx, stave1);
     voices[2].draw(ctx, stave2);
     
-    // Draw Beams
-    beams.forEach(b => b.setContext(ctx).draw());
-    
-    console.log("Beams generated: ", beams.length); 
+    // Draw beams with forced context
+    beams.forEach(b => {
+        b.setContext(ctx).draw();
+    });
 }
 
 function generate(f = false) {
