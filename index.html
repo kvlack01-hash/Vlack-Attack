@@ -310,23 +310,22 @@ function generate(forceRandom = false) {
 // --- UPDATED AUDIO ENGINE ---
 
 async function loadKit(kitName) {
-    // 1. Match these names EXACTLY to your filenames
     const names = ['kick', 'snare', 'hihat', 'hihat_open', 'hihat_foot', 'ride', 'ride_bell'];
-    const newBuffers = {};
+    const newBuffers = {}; // Load into a temporary container first
 
     console.log(`--- Starting Load for Kit: ${kitName} ---`);
 
     for (const name of names) {
         try {
-            // Note the path: samples/[kit]/[name].wav
             const response = await fetch(`samples/${kitName}/${name}.wav`);
             
             if (!response.ok) {
-                console.error(`❌ Failed to find: samples/${kitName}/${name}.wav (Status: ${response.status})`);
+                console.error(`❌ Missing: samples/${kitName}/${name}.wav`);
                 continue;
             }
 
             const arrayBuffer = await response.arrayBuffer();
+            // Decode the audio into the temporary container
             newBuffers[name] = await audioCtx.decodeAudioData(arrayBuffer);
             console.log(`✅ Loaded: ${name}.wav`);
         } catch (e) {
@@ -334,10 +333,11 @@ async function loadKit(kitName) {
         }
     }
 
-    buffers = newBuffers;
-    console.log("--- Load Complete. Buffers filled: ", Object.keys(buffers), " ---");
+    // ONLY SWAP NOW: This prevents the "silence" while loading
+    buffers = newBuffers; 
+    console.log("--- Kit Swap Complete ---");
 }
-
+    
 // 2. Updated playDrum to use Samples first
 function playDrum(name, time, isAccent = false) {
     if (!audioCtx) return;
@@ -472,16 +472,25 @@ document.getElementById('kit-select').onchange = async (e) => {
     btn.disabled = false;
 };
 document.getElementById('metro-btn').onclick = async function() {
+    // 1. Initialize Audio
     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    // 2. Crucial: Always resume the context in case the browser paused it
     if (audioCtx.state === 'suspended') await audioCtx.resume();
 
-    // FORCE LOAD if buffers are empty
-    if (Object.keys(buffers).length === 0) {
-        await loadKit(document.getElementById('kit-select').value);
-    }
-
     isPlaying = !isPlaying;
+
     if (isPlaying) { 
+        // 3. KEY FIX: Check if the currently loaded kit matches the dropdown selection
+        // If the user changed the kit while the beat was stopped, we catch it here.
+        const selectedKit = document.getElementById('kit-select').value;
+        
+        // We only trigger a load if it's not 'synthetic' and we need to refresh
+        if (selectedKit !== 'synthetic') {
+            this.innerText = "Loading...";
+            await loadKit(selectedKit);
+        }
+
         currentBeat = 0; 
         nextNoteTime = audioCtx.currentTime; 
         scheduler(); 
