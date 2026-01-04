@@ -130,27 +130,15 @@ function generate(f=false) {
     const footPat = (isT ? tFoot : sFoot)[footVal] || [0];
 
     const vD = [[],[],[]];
-    const beams = []; // This will hold our beam objects
 
     for(let b=0; b<4; b++) {
         for(let vI=0; vI<3; vI++) {
             let pat = (vI===0) ? cymPat : (vI===2 ? footPat : currentMid[b]);
-            let beatNotes = []; // Notes for this specific beat and voice
-            
             for(let i=0; i<sub; i++) {
                 let hit = pat[(b*sub+i) % pat.length] === 1;
                 let acc = (vI===0) ? getAccentLogic(cymVal, b*sub+i, hit) : false;
-                let note = createNote(vI, isT?"8":"16", hit, b, acc);
-                
-                vD[vI].push(note);
-                beatNotes.push(note);
-            }
-
-            // BEAMING LOGIC: 
-            // We group notes into beams unless they are rests
-            let beamable = beatNotes.filter(n => !n.isRest());
-            if (beamable.length > 1) {
-                beams.push(new VF.Beam(beamable));
+                // Important: Using "8" for Triplets and "16" for Straight
+                vD[vI].push(createNote(vI, isT ? "8" : "16", hit, b, acc));
             }
         }
     }
@@ -158,12 +146,19 @@ function generate(f=false) {
     const voices = vD.map(n => new VF.Voice({num_beats: 4, beat_value: 4}).setStrict(false).addTickables(n));
     new VF.Formatter().joinVoices(voices).format(voices, 750);
     
+    // DRAW VOICES
     voices[0].draw(ctx, stave1);
     voices[1].draw(ctx, stave1);
     voices[2].draw(ctx, stave2);
 
-    // Draw all the beams we collected
-    beams.forEach(b => b.setContext(ctx).draw());
+    // AUTO-GENERATE BEAMS
+    // This tells VexFlow to look at the notes and draw beams automatically
+    vD.forEach((notes, index) => {
+        const beamGroups = VF.Beam.generateBeams(notes, {
+            groups: [new VF.Fraction(1, 4)] // Beam every quarter note beat
+        });
+        beamGroups.forEach(b => b.setContext(ctx).draw());
+    });
 }
 
 // 4. AUDIO
