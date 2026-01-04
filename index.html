@@ -385,16 +385,15 @@ function scheduleSounds(time) {
     // 1. TOP VOICE (Ride/Hi-Hat)
     if (cymPat && cymPat[currentBeat % cymPat.length] === 1) {
         const isAcc = getAccentLogic(cymName, currentBeat, true);
-        // We pass 'hihat' (no dash) to match our buffer names
         playDrum(el === 'hi-hat' ? 'hihat' : el, time, isAcc);
     }
 
-    // 2. MIDDLE VOICE (Kick/Snare)
-    const bIdx = Math.floor(currentBeat / sub);
+    // 2. MIDDLE VOICE (Kick/Snare) - THE FIX IS HERE
+    // We use modulo 4 to ensure bIdx is always 0, 1, 2, or 3
+    const bIdx = Math.floor(currentBeat / sub) % 4; 
     const sIdx = currentBeat % sub;
-    // Check if a hit exists in the randomized middle pattern
+    
     if (currentMid[bIdx] && currentMid[bIdx][sIdx] === 1) {
-        // bIdx % 2 === 0 makes even beats Kick and odd beats Snare
         const drumType = (bIdx % 2 === 0) ? 'kick' : 'snare';
         playDrum(drumType, time);
     }
