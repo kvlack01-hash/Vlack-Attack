@@ -107,7 +107,7 @@ function generate(f = false) {
     renderer.resize(950, 450);
     const ctx = renderer.getContext();
     ctx.setStrokeStyle("#000");
-    ctx.setLineWidth(1.2); // Slightly thicker for readability
+    ctx.setLineWidth(1.2); 
 
     const stave1 = new VF.Stave(50, 40, 850).addClef("percussion").addTimeSignature("4/4").setContext(ctx).draw();
     const stave2 = new VF.Stave(50, 200, 850);
