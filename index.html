@@ -450,26 +450,25 @@ window.onload = () => {
 document.getElementById('tempo-slider').oninput = (e) => document.getElementById('bpm-display').innerText = e.target.value;
 document.getElementById('pocket-slider').oninput = (e) => document.getElementById('pocket-display').innerText = e.target.value;
 document.getElementById('kit-select').onchange = async (e) => {
-    // 1. Prevent regeneration of the beat
     const newKit = e.target.value;
     if (newKit === 'synthetic') { buffers = {}; return; }
+
+    // If audioCtx isn't started yet (user hasn't hit play), 
+    // we should initialize it so we can decode the audio
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
 
     const btn = document.getElementById('metro-btn');
     const oldLabel = btn.innerText;
 
-    // 2. Visual feedback
-    btn.innerText = "Switching Sounds...";
-    btn.disabled = true;
-
-    // 3. The Actual Load Logic
-    console.log("Attempting to load kit:", newKit);
-    // This 'await' is crucial; it ensures the old sounds are replaced before you hit play
+    // Visual feedback so the user knows a swap is happening in the background
+    btn.innerText = "Swapping Kit...";
+    
+    // We DON'T stop the audio. We just await the new files.
     await loadKit(newKit); 
-    console.log("Kit successfully replaced in memory.");
 
-    // 4. Reset UI
-    btn.innerText = oldLabel;
-    btn.disabled = false;
+    btn.innerText = isPlaying ? "Stop Playback" : "Play Beat";
 };
 document.getElementById('metro-btn').onclick = async function() {
     // 1. Initialize Audio
