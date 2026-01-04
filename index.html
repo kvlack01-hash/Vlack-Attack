@@ -141,19 +141,47 @@ function getAccentLogic(patternName, index, isHit) {
 function updateMenus() {
     const isTri = document.getElementById("triplet-mode").checked;
     const isAcc = document.getElementById("accent-mode").checked;
+    
+    // 1. Store what is currently selected before we wipe the menu
     const cSel = document.getElementById("cymbal-select");
-    const currentC = cSel.value;
-    cSel.innerHTML = "";
-    let list = isTri ? (isAcc ? tCymAcc : tCymPlain) : (isAcc ? sCymAcc : sCymPlain);
-    list.forEach(k => { let o = document.createElement("option"); o.value = k; o.text = k.trim(); cSel.add(o); });
-    cSel.value = Array.from(cSel.options).some(opt => opt.value === currentC) ? currentC : cSel.options[0].value;
+    const previousCymbal = cSel.value;
     
     const fSel = document.getElementById("foot-select");
-    const currentF = fSel.value;
+    const previousFoot = fSel.value;
+
+    // 2. Clear and Rebuild Ride/Cymbal Menu
+    cSel.innerHTML = "";
+    let cymList = isTri ? (isAcc ? tCymAcc : tCymPlain) : (isAcc ? sCymAcc : sCymPlain);
+    
+    cymList.forEach(k => { 
+        let o = document.createElement("option"); 
+        o.value = k; 
+        o.text = k.trim(); 
+        cSel.add(o); 
+    });
+
+    // 3. Logic: Stay on pattern if it exists, otherwise default to index 0
+    if (Array.from(cSel.options).some(opt => opt.value === previousCymbal)) {
+        cSel.value = previousCymbal;
+    } else {
+        cSel.selectedIndex = 0;
+    }
+
+    // 4. Clear and Rebuild Foot Menu (usually stays the same, but good for safety)
     fSel.innerHTML = "";
     let fList = isTri ? Object.keys(tFoot) : Object.keys(sFoot);
-    fList.forEach(k => { let o = document.createElement("option"); o.value = k; o.text = k; fSel.add(o); });
-    fSel.value = Array.from(fSel.options).some(opt => opt.value === currentF) ? currentF : fSel.options[0].value;
+    fList.forEach(k => { 
+        let o = document.createElement("option"); 
+        o.value = k; 
+        o.text = k; 
+        fSel.add(o); 
+    });
+
+    if (Array.from(fSel.options).some(opt => opt.value === previousFoot)) {
+        fSel.value = previousFoot;
+    } else {
+        fSel.selectedIndex = 0;
+    }
 }
 
 function createNote(vIdx, dur, isHit, bIdx, isAcc = false) {
