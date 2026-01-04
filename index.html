@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Vlack Attack v1.9.4 - Restored</title>
+    <title>Vlack Attack v1.9.1</title>
     <script src="https://cdn.jsdelivr.net/npm/vexflow@4.2.2/build/cjs/vexflow.js"></script>
     <style>
         body { font-family: 'Segoe UI', sans-serif; text-align: center; background: #f0f2f5; padding: 20px; }
@@ -13,7 +13,7 @@
         button, select { padding: 10px 12px; cursor: pointer; border-radius: 8px; border: 1px solid #ced4da; background: white; font-weight: bold; }
         #gen-btn { background: #27ae60; color: white; border: none; padding: 12px 25px; }
         .label-text { font-size: 0.8rem; font-weight: bold; color: #777; text-transform: uppercase; }
-        /* BEAMS RESTORED: Removed the .vf-flag display none rule */
+        .vf-flag { display: none !important; }
     </style>
 </head>
 <body>
@@ -21,17 +21,50 @@
 <div id="output"></div>
 
 <div class="controls">
-    <div class="control-group"><span class="label-text">Ride/Hi-Hat</span><select id="element-select"><option value="ride">Ride</option><option value="hi-hat">Hi-Hat</option></select></div>
-    <div class="control-group"><span class="label-text">Ride Pattern</span><select id="cymbal-select"></select></div>
-    <div class="control-group"><span class="label-text">Left Foot</span><select id="foot-select"></select></div>
+    <div class="control-group">
+        <span class="label-text">Element</span>
+        <select id="element-select">
+            <option value="ride">Ride</option>
+            <option value="hi-hat">Hi-Hat</option>
+            <option value="cowbell">Cowbell</option>
+        </select>
+    </div>
+
+    <div class="control-group">
+        <span class="label-text">Ride Pattern</span>
+        <select id="cymbal-select"></select>
+    </div>
+
+    <div class="control-group">
+        <span class="label-text">Left Foot</span>
+        <select id="foot-select"></select>
+    </div>
+    
     <button id="gen-btn">Randomize Kick/Snare</button>
-    <div class="control-group"><span class="label-text">Tempo: <span id="bpm-display">92</span> BPM</span><input type="range" id="tempo-slider" min="40" max="220" value="92"></div>
-    <div class="control-group"><span class="label-text">Pocket: <span id="pocket-display">0</span>%</span><input type="range" id="pocket-slider" min="0" max="30" value="0"></div>
-    <div class="control-group"><span class="label-text">Drum Kit</span><select id="kit-select"><option value="studio">Studio</option><option value="jazz">Jazz</option><option value="lo-fi">Lo-Fi</option><option value="muffled">Muffled</option><option value="boomy">Boomy</option><option value="compressed">Compressed</option></select></div>
+    
+    <div class="control-group">
+        <span class="label-text">Tempo: <span id="bpm-display">120</span> BPM</span>
+        <input type="range" id="tempo-slider" min="40" max="220" value="120">
+    </div>
+
+    <div class="control-group">
+        <span class="label-text">Pocket: <span id="pocket-display">0</span>%</span>
+        <input type="range" id="pocket-slider" min="0" max="30" value="0">
+    </div>
+
+    <div class="control-group">
+        <span class="label-text">Drum Kit</span>
+        <select id="kit-select">
+            <option value="synthetic">Clean Synth (Default)</option>
+            <option value="acoustic">Acoustic Jazz</option>
+            <option value="techno">Techno 909</option>
+        </select>
+    </div>
+
     <button id="metro-btn" style="background: #3498db; color: white;">Play Beat</button>
     <div style="display: flex; gap: 15px; align-items: center; background: #fff; padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
         <label><input type="checkbox" id="triplet-mode"> Triplet Mode</label>
-        <label><input type="checkbox" id="accent-mode"> Accents</label>
+        <label><input type="checkbox" id="accent-mode"> Accents (Ride)</label>
         <label><input type="checkbox" id="freeze-bottom"> Freeze Kick/Snare</label>
     </div>
 </div>
@@ -39,171 +72,263 @@
 <script>
 const VF = Vex.Flow;
 let buffers = {};
+
+// --- RHYTHM DATA ---
+const tCymPlain = ['¼ notes', 'shuffle', 'swing', '3:2 (down)', '3:2 (up)', '3:4 v1', '3:4 v2', '3:4 v3'];
+const tCymAcc = ['shuffle ', 'swing ', '3:2 (down) shuffle ', '3:2 (up) shuffle ', '3:4 v1 ', '3:4 v2 ', '3:4 v3 '];
+const tCym = { 
+    '¼ notes': [1,0,0], 'shuffle': [1,0,1], 'swing': [1,0,0,1,0,1],
+    '3:2 (down)': [1,0,1,0,1,0], '3:2 (up)': [0,1,0,1,0,1],
+    '3:4 v1': [1,1,1,0,1,1,1,0,1,1,1,0], '3:4 v2': [1,0,1,1,1,0,1,1,1,0,1,1], '3:4 v3': [0,1,1,1,0,1,1,1,0,1,1,1],
+    'shuffle ': [1,0,1], 'swing ': [1,0,0,1,0,1],
+    '3:2 (down) shuffle ': [1,0,1,0,1,0], '3:2 (up) shuffle ': [0,1,0,1,0,1],
+    '3:4 v1 ': [1,1,1,0,1,1,1,0,1,1,1,0], '3:4 v2 ': [1,0,1,1,1,0,1,1,1,0,1,1], '3:4 v3 ': [0,1,1,1,0,1,1,1,0,1,1,1]
+};
+const tFoot = { '1/4 notes': [1,0,0], '2 and 4': [0,0,0,1,0,0], '3:2 (down)': [1,0,1,0,1,0], '3:2 (up)': [0,1,0,1,0,1] };
+const sCymPlain = ['¼ notes', 'up beats', '⅛ notes', 'e a', '1 e &', 'e & a', '1 & a', '1 e a'];
+const sCymAcc = ['⅛ notes (down)', '⅛ notes (up)', '1 e & ', 'e & a ', '1 & a ', '1 e a '];
+const sCym = {
+    '¼ notes': [1,0,0,0], 'up beats': [0,0,1,0], '⅛ notes': [1,0,1,0],
+    'e a': [0,1,0,1], '1 e &': [1,1,1,0], 'e & a': [0,1,1,1],
+    '1 & a': [1,0,1,1], '1 e a': [1,1,0,1],
+    '⅛ notes (down)': [1,0,1,0], '⅛ notes (up)': [1,0,1,0],
+    '1 e & ': [1,1,1,0], 'e & a ': [0,1,1,1],
+    '1 & a ': [1,0,1,1], '1 e a ': [1,1,0,1]
+};
+const sFoot = { '1/4 notes': [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0], '2 and 4': [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0], '1/8 notes': [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0] };
+const tMidPool = [[1,1,1], [1,0,0], [0,1,0], [1,0,1], [0,0,1], [1,1,0], [0,1,1]];
+const sMidPool = [[1,0,0,0], [0,1,0,0], [0,0,1,0], [0,0,0,1], [1,0,1,0], [0,1,0,1], [1,1,0,0], [0,1,1,0], [0,0,1,1], [1,0,0,1], [1,1,1,0], [0,1,1,1], [1,0,1,1], [1,1,0,1]];
+
+let currentMid = [];
 let audioCtx = null;
 let isPlaying = false;
 let nextNoteTime = 0.0;
 let timerID = null;
 let currentBeat = 0;
-let currentMid = [];
 
-const tCym = { 'quarter notes': [1,0,0], 'shuffle': [1,0,1], 'swing': [1,0,0,1,0,1], '3:2 (down)': [1,0,1,0,1,0], '3:2 (up)': [0,1,0,1,0,1], '3:4 v1': [1,1,1,0,1,1,1,0,1,1,1,0], '3:4 v2': [1,0,1,1,1,0,1,1,1,0,1,1], '3:4 v3': [0,1,1,1,0,1,1,1,0,1,1,1], 'shuffle ': [1,0,1], 'swing ': [1,0,0,1,0,1], '3:2 (down) shuffle ': [1,0,1,0,1,0], '3:2 (up) shuffle ': [0,1,0,1,0,1] };
-const tFoot = { 'quarter notes': [1,0,0], '2 and 4': [0,0,0,1,0,0], '3:2 (down)': [1,0,1,0,1,0], '3:2 (up)': [0,1,0,1,0,1] };
-const sCym = { 'quarter notes': [1,0,0,0], 'up beats': [0,0,1,0], 'eighth notes': [1,0,1,0], 'e a': [0,1,0,1], '1 e &': [1,1,1,0], 'e & a': [0,1,1,1], '1 & a': [1,0,1,1], '1 e a': [1,1,0,1], 'eighth notes (down)': [1,0,1,0], 'eighth notes (up)': [1,0,1,0], '1 e & ': [1,1,1,0], 'e & a ': [0,1,1,1], '1 & a ': [1,0,1,1], '1 e a ': [1,1,0,1] };
-const sFoot = { 'quarter notes': [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0], '2 and 4': [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0], 'eighth notes': [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0] };
-const tMidPool = [[1,0,0], [0,1,0], [1,0,1], [0,0,1], [1,1,0], [0,1,1]];
-const sMidPool = [[1,0,0,0], [0,1,0,0], [0,0,1,0], [0,0,0,1], [1,0,1,0], [0,1,0,1], [1,1,0,0], [0,1,1,0], [0,0,1,1], [1,0,0,1]];
-
-function getAccentLogic(p, i, h) { 
-    if(!document.getElementById('accent-mode').checked || !h) return false; 
-    const isTri = document.getElementById("triplet-mode").checked; 
-    const check = p.toLowerCase();
-    const pos = i % 4;
-    if(isTri){
-        const p3 = i % 3, p6 = i % 6;
-        if(check.includes('shuffle')) return p3 === 0;
-        if(check.includes('swing')) return p6 === 0;
-        if(check.includes('3:2')) return (p6 === 0 || p6 === 4);
-        return false;
+// --- LOGIC FUNCTIONS ---
+function getAccentLogic(patternName, index, isHit) {
+    if (!document.getElementById('accent-mode').checked || !isHit) return false;
+    const isTri = document.getElementById("triplet-mode").checked;
+    if (isTri) {
+        const pos3 = index % 3, pos6 = index % 6, pos12 = index % 12;
+        switch(patternName) {
+            case 'shuffle ': return pos3 === 0;
+            case 'swing ': return pos6 === 0;
+            case '3:2 (down) shuffle ': return (pos6 === 0 || pos6 === 4);
+            case '3:2 (up) shuffle ': return (pos6 === 1 || pos6 === 3);
+            case '3:4 v1 ': return (pos12 === 2 || pos12 === 6 || pos12 === 10);
+            case '3:4 v2 ': return (pos12 === 0 || pos12 === 4 || pos12 === 8);
+            case '3:4 v3 ': return (pos12 === 3 || pos12 === 7 || pos12 === 11);
+            default: return false;
+        }
     } else {
-        if(check.includes('up')) return pos === 2;
-        if(check.includes('down')) return pos === 0;
-        if(check.includes('1 e &')) return pos === 2;
-        return false;
+        const pos = index % 4;
+        switch(patternName) {
+            case '⅛ notes (down)': return pos === 0;
+            case '⅛ notes (up)': return pos === 2;
+            case '1 e & ': return pos === 2;
+            case 'e & a ': return pos === 3;
+            case '1 & a ': return pos === 0;
+            case '1 e a ': return pos === 1;
+            default: return false;
+        }
     }
 }
 
-function updateMenus() { 
-    const isT = document.getElementById("triplet-mode").checked;
-    const isA = document.getElementById("accent-mode").checked;
-    const cS = document.getElementById("cymbal-select");
-    const fS = document.getElementById("foot-select");
-    cS.innerHTML = ""; fS.innerHTML = "";
-    let cL = isT ? (isA ? ['shuffle', 'swing', '3:2 (down) shuffle '] : ['quarter notes', 'shuffle', '3:2 (down)']) : (isA ? ['eighth notes (up)', 'eighth notes (down)', '1 e & '] : ['quarter notes', 'up beats', 'eighth notes']);
-    let fL = isT ? ['quarter notes', '2 and 4', '3:2 (down)'] : ['quarter notes', '2 and 4', 'eighth notes'];
-    cL.forEach(k => cS.add(new Option(k, k)));
-    fL.forEach(k => fS.add(new Option(k, k)));
+function updateMenus() {
+    const isTri = document.getElementById("triplet-mode").checked;
+    const isAcc = document.getElementById("accent-mode").checked;
+    const cSel = document.getElementById("cymbal-select");
+    const currentC = cSel.value;
+    cSel.innerHTML = "";
+    let list = isTri ? (isAcc ? tCymAcc : tCymPlain) : (isAcc ? sCymAcc : sCymPlain);
+    list.forEach(k => { let o = document.createElement("option"); o.value = k; o.text = k.trim(); cSel.add(o); });
+    cSel.value = Array.from(cSel.options).some(opt => opt.value === currentC) ? currentC : cSel.options[0].value;
+    
+    const fSel = document.getElementById("foot-select");
+    const currentF = fSel.value;
+    fSel.innerHTML = "";
+    let fList = isTri ? Object.keys(tFoot) : Object.keys(sFoot);
+    fList.forEach(k => { let o = document.createElement("option"); o.value = k; o.text = k; fSel.add(o); });
+    fSel.value = Array.from(fSel.options).some(opt => opt.value === currentF) ? currentF : fSel.options[0].value;
 }
 
-function createNote(v, d, h, b, a=false) { 
-    const el = document.getElementById('element-select').value; 
-    let k, s, rK, cD = d.replace('r',''), aR = !h||d.includes('r'); 
-    if(v===0){ s=1; rK="B/5/r"; if(h) k=(el==='hi-hat')?"G/5/x2":(a?"G/5/d2":"G/5/x2"); } 
-    else if(v===1){ k=(b%2===0)?"F/4":"C/5"; s=-1; rK="C/4/r"; } 
-    else { k=h?"B/4/x2":"B/4/r"; s=-1; rK="B/4/r"; } 
-    const n = new VF.StaveNote({keys:[h? (k||"G/5/x2"):rK], duration:cD+(aR?"r":""), stem_direction:s}); 
-    if(h&&v===0&&a&&el==='hi-hat') n.addModifier(new VF.Articulation('ah').setPosition(3), 0); 
-    if(cD.includes('d')) VF.Dot.buildAndAttach([n],{all:true}); 
-    if(v===2) n.setKeyLine(0,2); 
-    return n; 
-}
-
-function generate(f=false) { 
-    const d = document.getElementById("output"); d.innerHTML = ""; 
-    const isT = document.getElementById("triplet-mode").checked, sub = isT?3:4, tT = 4*sub;
-    const r = new VF.Renderer(d, VF.Renderer.Backends.SVG); r.resize(1000, 500); 
-    const ctx = r.getContext(), s1 = new VF.Stave(80, 40, 870).addClef("percussion").addTimeSignature("4/4").setContext(ctx).draw(), s2 = new VF.Stave(80, 200, 870); 
-    [0,1,3,4].forEach(l=>s2.setConfigForLine(l,{visible:false})); s2.addClef("percussion").addTimeSignature("4/4").setContext(ctx).draw(); 
-    new VF.StaveConnector(s1,s2).setType(VF.StaveConnector.type.BRACKET).setContext(ctx).draw(); 
-    if(f||!document.getElementById("freeze-bottom").checked||currentMid.length===0){ 
-        currentMid=[]; const p = isT?tMidPool:sMidPool; for(let i=0;i<4;i++) currentMid.push(p[Math.floor(Math.random()*p.length)]); 
-    } 
-    const vD=[[],[],[]], beams=[]; const cN = document.getElementById("cymbal-select").value, fN = document.getElementById("foot-select").value; 
-    for(let b=0;b<4;b++){ 
-        for(let vI=0;vI<3;vI++){ 
-            let sl=[], pat=(vI===0)?(isT?tCym:sCym)[cN]:(vI===2?(isT?tFoot:sFoot)[fN]:currentMid[b]); 
-            for(let i=0;i<sub;i++) sl.push(pat[(b*sub+i)%pat.length]); 
-            let fLB=true; for(let k=1;k<sub;k++) if(sl[k]!==0) fLB=false; 
-            if(fLB){ 
-                let cDur=isT?"4d":"4", hit=sl[0]===1, acc=(vI===0)?getAccentLogic(cN,b*sub,hit):false; vD[vI].push(createNote(vI,cDur,hit,b,acc)); 
-            } else { 
-                let bN=[]; for(let i=0;i<sub;i++){ 
-                    let h=sl[i]===1, acc=(vI===0)?getAccentLogic(cN,b*sub+i,h):false, fD=isT?"8":"16"; 
-                    if(!h) fD+="r"; let n=createNote(vI,fD,h,b,acc); bN.push(n); vD[vI].push(n); 
-                } 
-                let nTB=bN.filter(n=>!n.isRest()); if(nTB.length>=2) beams.push(new VF.Beam(nTB)); 
-            } 
-        } 
-    } 
-    const voices = vD.map(n=>new VF.Voice({num_beats:tT, beat_value:isT?8:16}).setStrict(false).addTickables(n)); 
-    new VF.Formatter().joinVoices([voices[0],voices[1]]).format([voices[0],voices[1]], 800); 
-    new VF.Formatter().joinVoices([voices[2]]).format([voices[2]], 800); 
-    voices[0].draw(ctx,s1); voices[1].draw(ctx,s1); voices[2].draw(ctx,s2); 
-    beams.forEach(b=>b.setContext(ctx).draw()); 
-}
-
-async function loadKit(k) {
-    const s = ['kick','snare','hihat','hihat_open','hihat_foot','ride','ride_bell']; 
-    const nB = {};
-    for (const name of s) {
-        try {
-            const r = await fetch(`samples/${k}/${name}.wav`);
-            if(!r.ok) throw new Error();
-            const aB = await r.arrayBuffer();
-            nB[name] = await audioCtx.decodeAudioData(aB);
-        } catch(e) { console.warn(`Missing sample: ${name}`); }
+function createNote(vIdx, dur, isHit, bIdx, isAcc = false) {
+    let key, stem, restKey;
+    const element = document.getElementById('element-select').value;
+    let cleanDur = dur.replace('r', '');
+    let actualRest = !isHit || dur.includes('r');
+    if (vIdx === 0) {
+        stem = 1; restKey = "B/5/r";
+        if (isHit) key = (element === 'hi-hat') ? "G/5/x2" : (isAcc ? "G/5/d2" : "G/5/x2");
+    } else if (vIdx === 1) {
+        key = (bIdx % 2 === 0) ? "F/4" : "C/5"; stem = -1; restKey = "C/4/r";
+    } else {
+        key = isHit ? "B/4/x2" : "B/4/r"; stem = -1; restKey = "B/4/r";
     }
-    buffers = nB;
+    const note = new VF.StaveNote({ keys: [isHit ? (key || "G/5/x2") : restKey], duration: cleanDur + (actualRest ? "r" : ""), stem_direction: stem });
+    if (isHit && vIdx === 0 && isAcc && element === 'hi-hat') note.addModifier(new VF.Articulation('ah').setPosition(3), 0);
+    if (cleanDur.includes('d')) VF.Dot.buildAndAttach([note], { all: true });
+    if (vIdx === 2) note.setKeyLine(0, 2); 
+    else if (actualRest) { if (vIdx === 1) note.setKeyLine(0, 1); if (vIdx === 0) note.setKeyLine(0, 5); }
+    return note;
 }
 
-function playDrum(n, t, isAcc = false) {
-    if(!audioCtx) return;
-    let sN = n;
-    if(isAcc){ if(n==='ride') sN='ride_bell'; if(n === 'hihat') sN = 'hihat_open'; }
-    if(buffers[sN]){ 
-        const s=audioCtx.createBufferSource(); s.buffer=buffers[sN]; s.connect(audioCtx.destination); s.start(t); return; 
+function generate(forceRandom = false) {
+    const div = document.getElementById("output");
+    div.innerHTML = "";
+    const isTri = document.getElementById("triplet-mode").checked;
+    const sub = isTri ? 3 : 4;
+    const totalTicks = 4 * sub;
+    const renderer = new VF.Renderer(div, VF.Renderer.Backends.SVG);
+    renderer.resize(1000, 600);
+    const ctx = renderer.getContext();
+    const s1 = new VF.Stave(80, 80, 870).addClef("percussion").addTimeSignature("4/4").setContext(ctx).draw();
+    const s2 = new VF.Stave(80, 260, 870);
+    [0, 1, 3, 4].forEach(line => s2.setConfigForLine(line, { visible: false }));
+    s2.addClef("percussion").addTimeSignature("4/4").setContext(ctx).draw();
+    new VF.StaveConnector(s1, s2).setType(VF.StaveConnector.type.BRACKET).setContext(ctx).draw();
+    new VF.StaveConnector(s1, s2).setType(VF.StaveConnector.type.SINGLE_LEFT).setContext(ctx).draw();
+    new VF.StaveConnector(s1, s2).setType(VF.StaveConnector.type.SINGLE_RIGHT).setContext(ctx).draw();
+
+    if (forceRandom || !document.getElementById("freeze-bottom").checked || currentMid.length === 0) {
+        currentMid = [];
+        const pool = isTri ? tMidPool : sMidPool;
+        for (let i = 0; i < 4; i++) currentMid.push(pool[Math.floor(Math.random() * pool.length)]);
     }
-    const d = audioCtx.destination;
-    if(n==='kick'){ 
-        const o=audioCtx.createOscillator(), g=audioCtx.createGain(); 
-        o.frequency.setValueAtTime(60,t); o.frequency.exponentialRampToValueAtTime(0.01,t+0.1); 
-        g.gain.setValueAtTime(1.0,t); g.gain.exponentialRampToValueAtTime(0.01,t+0.1); 
-        o.connect(g).connect(d); o.start(t); o.stop(t+0.1); 
-    } else if(n==='snare'){
-        const o=audioCtx.createOscillator(), g=audioCtx.createGain();
-        o.type='square'; o.frequency.setValueAtTime(200,t);
-        g.gain.setValueAtTime(0.3,t); g.gain.exponentialRampToValueAtTime(0.01,t+0.1);
-        o.connect(g).connect(d); o.start(t); o.stop(t+0.1);
+
+    const vData = [[], [], []], beams = [];
+    const cymName = document.getElementById("cymbal-select").value, footName = document.getElementById("foot-select").value;
+
+    for (let b = 0; b < 4; b++) {
+        for (let vIdx = 0; vIdx < 3; vIdx++) {
+            let slice = [], pat = (vIdx === 0) ? (isTri?tCym:sCym)[cymName] : (vIdx === 2 ? (isTri?tFoot:sFoot)[footName] : currentMid[b]);
+            for (let i = 0; i < sub; i++) slice.push(pat[(b * sub + i) % pat.length]);
+            let isFullBeat = true;
+            for(let k=1; k < sub; k++) if(slice[k] !== 0) isFullBeat = false;
+            if (isFullBeat) {
+                let cDur = isTri ? "4d" : "4", hit = slice[0] === 1, acc = (vIdx === 0) ? getAccentLogic(cymName, b * sub, hit) : false;
+                vData[vIdx].push(createNote(vIdx, cDur, hit, b, acc));
+            } else {
+                let bNotes = [];
+                for (let i = 0; i < sub; i++) {
+                    let hit = slice[i] === 1, acc = (vIdx === 0) ? getAccentLogic(cymName, b * sub + i, hit) : false, finalDur = isTri ? "8" : "16";
+                    if (!isTri) {
+                        let emptySlots = 0;
+                        for (let j = i + 1; j < sub; j++) if (slice[j] === 0) emptySlots++; else break;
+                        if (hit) { if (emptySlots === 1) { finalDur = "8"; i += 1; } else if (emptySlots === 2) { finalDur = "8d"; i += 2; } else if (emptySlots === 3) { finalDur = "4"; i += 3; } }
+                        else { if (emptySlots === 1) { finalDur = "8r"; i += 1; } else if (emptySlots === 2) { finalDur = "8dr"; i += 2; } else if (emptySlots === 3) { finalDur = "4r"; i += 3; } else finalDur = "16r"; }
+                    } else if (!hit) finalDur = "8r";
+                    let n = createNote(vIdx, finalDur, hit, b, acc);
+                    bNotes.push(n); vData[vIdx].push(n);
+                }
+                let notesToBeam = isTri ? bNotes : bNotes.filter(n => !n.isRest());
+                if (notesToBeam.length >= 2) beams.push(new VF.Beam(notesToBeam));
+            }
+        }
     }
+    const voices = vData.map(notes => new VF.Voice({num_beats: totalTicks, beat_value: isTri ? 8 : 16}).setStrict(false).addTickables(notes));
+    new VF.Formatter().joinVoices([voices[0], voices[1]]).format([voices[0], voices[1]], 800);
+    new VF.Formatter().joinVoices([voices[2]]).format([voices[2]], 800);
+    voices[0].draw(ctx, s1); voices[1].draw(ctx, s1); voices[2].draw(ctx, s2);
+    beams.forEach(b => b.setContext(ctx).draw());
+}
+
+// --- AUDIO ENGINE ---
+function playDrum(name, time) {
+    if (!audioCtx) return;
+    const dest = audioCtx.destination;
+    if (name === 'kick') {
+        const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+        osc.frequency.setValueAtTime(120, time); osc.frequency.exponentialRampToValueAtTime(0.01, time + 0.4);
+        gain.gain.setValueAtTime(1.0, time); gain.gain.exponentialRampToValueAtTime(0.01, time + 0.4);
+        osc.connect(gain).connect(dest); osc.start(time); osc.stop(time + 0.4);
+    } else if (name === 'snare') {
+        const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.1, audioCtx.sampleRate), data = buf.getChannelData(0);
+        for (let i = 0; i < buf.length; i++) data[i] = Math.random() * 2 - 1;
+        const src = audioCtx.createBufferSource(), gain = audioCtx.createGain();
+        src.buffer = buf; gain.gain.setValueAtTime(0.3, time); gain.gain.exponentialRampToValueAtTime(0.01, time + 0.15);
+        src.connect(gain).connect(dest); src.start(time);
+    } else if (name === 'cowbell') {
+        [800, 540].forEach(f => {
+            const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+            osc.type = 'square'; osc.frequency.setValueAtTime(f, time);
+            gain.gain.setValueAtTime(0.1, time); gain.gain.exponentialRampToValueAtTime(0.01, time + 0.3);
+            osc.connect(gain).connect(dest); osc.start(time); osc.stop(time + 0.3);
+        });
+    } else if (name === 'hihat') {
+        const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.05, audioCtx.sampleRate), data = buf.getChannelData(0);
+        for (let i = 0; i < buf.length; i++) data[i] = Math.random() * 2 - 1;
+        const src = audioCtx.createBufferSource(), filt = audioCtx.createBiquadFilter(), gain = audioCtx.createGain();
+        filt.type = "highpass"; filt.frequency.value = 7000; src.buffer = buf;
+        gain.gain.setValueAtTime(0.2, time); gain.gain.exponentialRampToValueAtTime(0.01, time + 0.05);
+        src.connect(filt).connect(gain).connect(dest); src.start(time);
+    } else if (name === 'ride') {
+        const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+        osc.type = 'sine'; osc.frequency.setValueAtTime(3000, time);
+        gain.gain.setValueAtTime(0.1, time); gain.gain.exponentialRampToValueAtTime(0.01, time + 0.6);
+        osc.connect(gain).connect(dest); osc.start(time); osc.stop(time + 0.6);
+    }
+}
+
+function scheduleSounds(time) {
+    const isTri = document.getElementById("triplet-mode").checked, sub = isTri ? 3 : 4;
+    const cymName = document.getElementById("cymbal-select").value, el = document.getElementById('element-select').value, footName = document.getElementById("foot-select").value;
+    const cymPat = (isTri ? tCym : sCym)[cymName], footPat = (isTri ? tFoot : sFoot)[footName];
+    if (cymPat && cymPat[currentBeat % cymPat.length] === 1) playDrum(el === 'hi-hat' ? 'hihat' : el, time);
+    const bIdx = Math.floor(currentBeat / sub), sIdx = currentBeat % sub;
+    if (currentMid[bIdx] && currentMid[bIdx][sIdx] === 1) playDrum(bIdx % 2 === 0 ? 'kick' : 'snare', time);
+    if (footPat && footPat[currentBeat % footPat.length] === 1) playDrum('hihat', time);
 }
 
 function scheduler() {
-    const tempo = document.getElementById('tempo-slider').value, pocket = document.getElementById('pocket-slider').value/100, isT = document.getElementById("triplet-mode").checked;
-    const spb = 60.0/tempo, sps = isT?(spb/3):(spb/4);
+    const tempo = document.getElementById('tempo-slider').value, pocket = document.getElementById('pocket-slider').value / 100, isTri = document.getElementById("triplet-mode").checked;
+    const spb = 60.0 / tempo, sps = isTri ? (spb / 3) : (spb / 4);
     while (nextNoteTime < audioCtx.currentTime + 0.1) {
-        let sI = currentBeat%(isT?3:4), aPT = nextNoteTime;
-        if(!isT && (sI===1||sI===3)) aPT += (sps*pocket);
-        const cN = document.getElementById("cymbal-select").value, el = document.getElementById('element-select').value, fN = document.getElementById("foot-select").value;
-        const cP = (isT?tCym:sCym)[cN], fP = (isT?tFoot:sFoot)[fN];
-        if(cP && cP[currentBeat%cP.length]===1) playDrum(el==='hi-hat'?'hihat':el, aPT, getAccentLogic(cN, currentBeat, true));
-        const bI = Math.floor(currentBeat/(isT?3:4));
-        if(currentMid[bI] && currentMid[bI][currentBeat%(isT?3:4)]===1) playDrum(bI%2===0?'kick':'snare', aPT);
-        if(fP && fP[currentBeat%fP.length]===1) playDrum('hihat_foot', aPT);
-        nextNoteTime += sps; currentBeat = (currentBeat+1)%(isT ? 12 : 16);
+        let subIdx = currentBeat % (isTri ? 3 : 4), actualPlayTime = nextNoteTime;
+        if (!isTri && (subIdx === 1 || subIdx === 3)) actualPlayTime += (sps * pocket);
+        scheduleSounds(actualPlayTime);
+        nextNoteTime += sps;
+        currentBeat = (currentBeat + 1) % (isTri ? 12 : 16);
     }
     timerID = setTimeout(scheduler, 25);
 }
 
+// --- INITIALIZATION ---
 window.onload = () => {
     updateMenus();
     document.querySelectorAll("select, input").forEach(el => {
         el.onchange = () => {
             if (el.id === "tempo-slider" || el.id === "pocket-slider") return;
-            if (el.id === "triplet-mode" || el.id === "accent-mode") updateMenus();
+            if (el.id === "triplet-mode" || el.id === "accent-mode") {
+                updateMenus();
+                document.getElementById("pocket-slider").disabled = document.getElementById("triplet-mode").checked;
+            }
             generate();
         };
     });
     document.getElementById("gen-btn").onclick = () => generate(true);
-    document.getElementById('tempo-slider').oninput = (e) => document.getElementById('bpm-display').innerText = e.target.value;
-    document.getElementById('pocket-slider').oninput = (e) => document.getElementById('pocket-display').innerText = e.target.value;
-    document.getElementById('metro-btn').onclick = async function() {
-        if (!audioCtx) audioCtx = new AudioContext();
-        if (audioCtx.state === 'suspended') await audioCtx.resume();
-        if (Object.keys(buffers).length === 0) await loadKit(document.getElementById('kit-select').value);
-        isPlaying = !isPlaying;
-        if (isPlaying) { currentBeat = 0; nextNoteTime = audioCtx.currentTime; scheduler(); this.innerText = "Stop"; }
-        else { clearTimeout(timerID); this.innerText = "Play Beat"; }
-    };
+    document.getElementById('metro-btn').innerText = "Play Beat";
     generate();
+};
+
+document.getElementById('tempo-slider').oninput = (e) => document.getElementById('bpm-display').innerText = e.target.value;
+document.getElementById('pocket-slider').oninput = (e) => document.getElementById('pocket-display').innerText = e.target.value;
+document.getElementById('kit-select').onchange = async (e) => {
+    if (e.target.value === 'synthetic') { buffers = {}; return; }
+    const btn = document.getElementById('metro-btn'), old = btn.innerText;
+    btn.innerText = "Loading Kit...";
+    // await loadKit(e.target.value); 
+    btn.innerText = old;
+};
+
+document.getElementById('metro-btn').onclick = async function() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') await audioCtx.resume();
+    isPlaying = !isPlaying;
+    if (isPlaying) { currentBeat = 0; nextNoteTime = audioCtx.currentTime; scheduler(); this.innerText = "Stop Playback"; this.style.background = "#e74c3c"; }
+    else { clearTimeout(timerID); this.innerText = "Play Beat"; this.style.background = "#3498db"; }
 };
 </script>
 </body>
