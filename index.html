@@ -238,51 +238,88 @@ function generate(forceRandom = false) {
     beams.forEach(b => b.setContext(ctx).draw());
 }
 
-// --- AUDIO ENGINE ---
-function playDrum(name, time) {
+// --- UPDATED AUDIO ENGINE ---
+
+// 1. Helper to load all sounds for a selected kit
+async function loadKit(kitName) {
+    const sounds = ['kick', 'snare', 'hihat', 'hihat_open', 'hihat_foot', 'ride', 'ride_bell']; 
+    const newBuffers = {};
+    const btn = document.getElementById('metro-btn');
+    const originalText = btn.innerText;
+    
+    btn.innerText = "Loading " + kitName.toUpperCase() + "...";
+
+    for (const name of sounds) {
+        try {
+            const response = await fetch(`samples/${kitName}/${name}.wav`);
+            if(!response.ok) throw new Error();
+            const arrayBuffer = await response.arrayBuffer();
+            newBuffers[name] = await audioCtx.decodeAudioData(arrayBuffer);
+        } catch(e) { 
+            console.warn(`Missing: ${kitName}/${name}.wav. Using synth fallback.`); 
+        }
+    }
+    buffers = newBuffers;
+    btn.innerText = originalText;
+}
+
+// 2. Updated playDrum to use Samples first
+function playDrum(name, time, isAcc = false) {
     if (!audioCtx) return;
     const dest = audioCtx.destination;
+    
+    // Switchboard: determine the specific sample name
+    let sampleName = name;
+    if (isAcc) {
+        if (name === 'ride') sampleName = 'ride_bell';
+        if (name === 'hihat') sampleName = 'hihat_open';
+    }
+
+    // IF WE HAVE A SAMPLE, PLAY IT
+    if (buffers[sampleName]) {
+        const source = audioCtx.createBufferSource();
+        source.buffer = buffers[sampleName];
+        source.connect(dest);
+        source.start(time);
+        return; // Stop here if sample played
+    }
+
+    // FALLBACKS (The "Bings and Blips")
     if (name === 'kick') {
         const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
-        osc.frequency.setValueAtTime(120, time); osc.frequency.exponentialRampToValueAtTime(0.01, time + 0.4);
-        gain.gain.setValueAtTime(1.0, time); gain.gain.exponentialRampToValueAtTime(0.01, time + 0.4);
+        osc.frequency.setValueAtTime(120, time); 
+        osc.frequency.exponentialRampToValueAtTime(0.01, time + 0.4);
+        gain.gain.setValueAtTime(1.0, time); 
+        gain.gain.exponentialRampToValueAtTime(0.01, time + 0.4);
         osc.connect(gain).connect(dest); osc.start(time); osc.stop(time + 0.4);
     } else if (name === 'snare') {
         const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.1, audioCtx.sampleRate), data = buf.getChannelData(0);
         for (let i = 0; i < buf.length; i++) data[i] = Math.random() * 2 - 1;
         const src = audioCtx.createBufferSource(), gain = audioCtx.createGain();
-        src.buffer = buf; gain.gain.setValueAtTime(0.3, time); gain.gain.exponentialRampToValueAtTime(0.01, time + 0.15);
+        src.buffer = buf; gain.gain.setValueAtTime(0.3, time); 
+        gain.gain.exponentialRampToValueAtTime(0.01, time + 0.15);
         src.connect(gain).connect(dest); src.start(time);
-    } else if (name === 'cowbell') {
-        [800, 540].forEach(f => {
-            const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
-            osc.type = 'square'; osc.frequency.setValueAtTime(f, time);
-            gain.gain.setValueAtTime(0.1, time); gain.gain.exponentialRampToValueAtTime(0.01, time + 0.3);
-            osc.connect(gain).connect(dest); osc.start(time); osc.stop(time + 0.3);
-        });
-    } else if (name === 'hihat') {
-        const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.05, audioCtx.sampleRate), data = buf.getChannelData(0);
-        for (let i = 0; i < buf.length; i++) data[i] = Math.random() * 2 - 1;
-        const src = audioCtx.createBufferSource(), filt = audioCtx.createBiquadFilter(), gain = audioCtx.createGain();
-        filt.type = "highpass"; filt.frequency.value = 7000; src.buffer = buf;
-        gain.gain.setValueAtTime(0.2, time); gain.gain.exponentialRampToValueAtTime(0.01, time + 0.05);
-        src.connect(filt).connect(gain).connect(dest); src.start(time);
-    } else if (name === 'ride') {
+    } else if (name === 'hihat' || name === 'ride') {
+        // Simple synth sizzle for hats/ride
         const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
-        osc.type = 'sine'; osc.frequency.setValueAtTime(3000, time);
-        gain.gain.setValueAtTime(0.1, time); gain.gain.exponentialRampToValueAtTime(0.01, time + 0.6);
-        osc.connect(gain).connect(dest); osc.start(time); osc.stop(time + 0.6);
+        osc.type = 'sine'; osc.frequency.setValueAtTime(name === 'hihat' ? 7000 : 3000, time);
+        gain.gain.setValueAtTime(0.1, time); gain.gain.exponentialRampToValueAtTime(0.01, time + 0.3);
+        osc.connect(gain).connect(dest); osc.start(time); osc.stop(time + 0.3);
     }
 }
 
 function scheduleSounds(time) {
-    const isTri = document.getElementById("triplet-mode").checked, sub = isTri ? 3 : 4;
-    const cymName = document.getElementById("cymbal-select").value, el = document.getElementById('element-select').value, footName = document.getElementById("foot-select").value;
-    const cymPat = (isTri ? tCym : sCym)[cymName], footPat = (isTri ? tFoot : sFoot)[footName];
-    if (cymPat && cymPat[currentBeat % cymPat.length] === 1) playDrum(el === 'hi-hat' ? 'hihat' : el, time);
-    const bIdx = Math.floor(currentBeat / sub), sIdx = currentBeat % sub;
-    if (currentMid[bIdx] && currentMid[bIdx][sIdx] === 1) playDrum(bIdx % 2 === 0 ? 'kick' : 'snare', time);
-    if (footPat && footPat[currentBeat % footPat.length] === 1) playDrum('hihat', time);
+    const isTri = document.getElementById("triplet-mode").checked;
+    const cymName = document.getElementById("cymbal-select").value;
+    const el = document.getElementById('element-select').value;
+    const cymPat = (isTri ? tCym : sCym)[cymName];
+
+    if (cymPat && cymPat[currentBeat % cymPat.length] === 1) {
+        // Check for accent!
+        const isAcc = getAccentLogic(cymName, currentBeat, true);
+        playDrum(el === 'hi-hat' ? 'hihat' : el, time, isAcc);
+    }
+    // ... rest of kick/snare logic
 }
 
 function scheduler() {
