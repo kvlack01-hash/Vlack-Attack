@@ -2,16 +2,18 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Vlack Attack v1.9.5 - Beam Force</title>
+    <title>Vlack Attack v1.9.3</title>
     <script src="https://cdn.jsdelivr.net/npm/vexflow@4.2.2/build/cjs/vexflow.js"></script>
     <style>
         body { font-family: 'Segoe UI', sans-serif; text-align: center; background: #f0f2f5; padding: 20px; }
-        #output { background: white; margin: 20px auto; min-height: 400px; width: 900px; border: 1px solid #ddd; border-radius: 12px; }
-        .controls { display: flex; justify-content: center; gap: 15px; padding: 20px; background: #f8f9fa; border-radius: 12px; flex-wrap: wrap; }
+        .container { background: white; max-width: 1300px; margin: 0 auto; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        #output { background: white; margin: 20px 0; min-height: 520px; border: 1px solid #e1e4e8; border-radius: 12px; display: flex; justify-content: center; align-items: center; overflow-x: auto; }
+        .controls { display: flex; justify-content: center; align-items: center; padding: 20px; background: #f8f9fa; border-radius: 12px; border: 1px solid #eee; flex-wrap: wrap; gap: 15px; }
         .control-group { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; }
-        button, select { padding: 8px 12px; border-radius: 6px; border: 1px solid #ccc; font-weight: bold; }
-        .label-text { font-size: 0.7rem; font-weight: bold; color: #666; text-transform: uppercase; }
-        #gen-btn { background: #27ae60; color: white; border: none; }
+        button, select { padding: 10px 12px; cursor: pointer; border-radius: 8px; border: 1px solid #ced4da; background: white; font-weight: bold; }
+        #gen-btn { background: #27ae60; color: white; border: none; padding: 12px 25px; }
+        .label-text { font-size: 0.8rem; font-weight: bold; color: #777; text-transform: uppercase; }
+        .vf-flag { display: none !important; }
     </style>
 </head>
 <body>
@@ -19,125 +21,223 @@
 <div id="output"></div>
 
 <div class="controls">
-    <div class="control-group"><span class="label-text">Ride/HH</span><select id="el-sel"><option value="ride">Ride</option><option value="hi-hat">Hi-Hat</option></select></div>
-    <div class="control-group"><span class="label-text">Ride Pattern</span><select id="cym-sel"></select></div>
-    <div class="control-group"><span class="label-text">Left Foot</span><select id="foot-sel"></select></div>
-    <button id="gen-btn">New Kick/Snare</button>
+    <div class="control-group"><span class="label-text">Element</span><select id="element-select"><option value="ride">Ride</option><option value="hi-hat">Hi-Hat</option><option value="cowbell">Cowbell</option></select></div>
+    <div class="control-group"><span class="label-text">Ride Pattern</span><select id="cymbal-select"></select></div>
+    <div class="control-group"><span class="label-text">Left Foot</span><select id="foot-select"></select></div>
+    <button id="gen-btn">Randomize Kick/Snare</button>
+    <div class="control-group"><span class="label-text">Tempo: <span id="bpm-display">120</span> BPM</span><input type="range" id="tempo-slider" min="40" max="220" value="120"></div>
+    <div class="control-group"><span class="label-text">Pocket: <span id="pocket-display">0</span>%</span><input type="range" id="pocket-slider" min="0" max="30" value="0"></div>
+    <div class="control-group"><span class="label-text">Drum Kit</span><select id="kit-select"><option value="synthetic">Clean Synth (Default)</option><option value="rock">Rock Kit</option><option value="jazz">Jazz Kit</option></select></div>
+    <button id="metro-btn" style="background: #3498db; color: white;">Play Beat</button>
     <div style="display: flex; gap: 15px; align-items: center; background: #fff; padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
-        <label><input type="checkbox" id="trip-chk"> Triplet Mode</label>
-        <label><input type="checkbox" id="acc-chk"> Accents</label>
+        <label><input type="checkbox" id="triplet-mode"> Triplet Mode</label>
+        <label><input type="checkbox" id="accent-mode"> Accents</label>
+        <label><input type="checkbox" id="freeze-bottom"> Freeze Kick/Snare</label>
     </div>
 </div>
 
 <script>
 const VF = Vex.Flow;
+let buffers = {};
+let audioCtx = null;
+let isPlaying = false;
+let nextNoteTime = 0.0;
+let timerID = null;
+let currentBeat = 0;
 let currentMid = [];
 
-// DATA POOLS - Hardcoded inside to prevent scope loss
-const POOLS = {
-    sCym: { 'quarter notes': [1,0,0,0], 'up beats': [0,0,1,0], 'eighth notes': [1,0,1,0], '1 e &': [1,1,1,0] },
-    tCym: { 'quarter notes': [1,0,0], 'shuffle': [1,0,1], 'swing': [1,0,0,1,0,1], '3:2 (down)': [1,0,1,0,1,0] },
-    sFoot: { 'quarter notes': [1,0,0,0], '2 and 4': [0,0,0,0,1,0,0,0], 'eighth notes': [1,0,1,0] },
-    tFoot: { 'quarter notes': [1,0,0], '2 and 4': [0,0,0,1,0,0], '3:2 (down)': [1,0,1,0,1,0] }
-};
+// --- RHYTHM DATA ---
+const tCym = { '¼ notes': [1,0,0], 'shuffle': [1,0,1], 'swing': [1,0,0,1,0,1], '3:2 (down)': [1,0,1,0,1,0], '3:2 (up)': [0,1,0,1,0,1], '3:4 v1': [1,1,1,0,1,1,1,0,1,1,1,0], '3:4 v2': [1,0,1,1,1,0,1,1,1,0,1,1], '3:4 v3': [0,1,1,1,0,1,1,1,0,1,1,1], 'shuffle ': [1,0,1], 'swing ': [1,0,0,1,0,1], '3:2 (down) shuffle ': [1,0,1,0,1,0], '3:2 (up) shuffle ': [0,1,0,1,0,1], '3:4 v1 ': [1,1,1,0,1,1,1,0,1,1,1,0], '3:4 v2 ': [1,0,1,1,1,0,1,1,1,0,1,1], '3:4 v3 ': [0,1,1,1,0,1,1,1,0,1,1,1] };
+const tCymPlain = ['¼ notes', 'shuffle', 'swing', '3:2 (down)', '3:2 (up)', '3:4 v1', '3:4 v2', '3:4 v3'];
+const tCymAcc = ['shuffle ', 'swing ', '3:2 (down) shuffle ', '3:2 (up) shuffle ', '3:4 v1 ', '3:4 v2 ', '3:4 v3 '];
+const tFoot = { '1/4 notes': [1,0,0], '2 and 4': [0,0,0,1,0,0], '3:2 (down)': [1,0,1,0,1,0], '3:2 (up)': [0,1,0,1,0,1] };
+const sCym = { '¼ notes': [1,0,0,0], 'up beats': [0,0,1,0], '⅛ notes': [1,0,1,0], 'e a': [0,1,0,1], '1 e &': [1,1,1,0], 'e & a': [0,1,1,1], '1 & a': [1,0,1,1], '1 e a': [1,1,0,1], '⅛ notes (down)': [1,0,1,0], '⅛ notes (up)': [1,0,1,0], '1 e & ': [1,1,1,0], 'e & a ': [0,1,1,1], '1 & a ': [1,0,1,1], '1 e a ': [1,1,0,1] };
+const sCymPlain = ['¼ notes', 'up beats', '⅛ notes', 'e a', '1 e &', 'e & a', '1 & a', '1 e a'];
+const sCymAcc = ['⅛ notes (down)', '⅛ notes (up)', '1 e & ', 'e & a ', '1 & a ', '1 e a '];
+const sFoot = { '1/4 notes': [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0], '2 and 4': [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0], '1/8 notes': [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0] };
+const tMidPool = [[1,1,1], [1,0,0], [0,1,0], [1,0,1], [0,0,1], [1,1,0], [0,1,1]];
+const sMidPool = [[1,0,0,0], [0,1,0,0], [0,0,1,0], [0,0,0,1], [1,0,1,0], [0,1,0,1], [1,1,0,0], [0,1,1,0], [0,0,1,1], [1,0,0,1], [1,1,1,0], [0,1,1,1], [1,0,1,1], [1,1,0,1]];
 
-function updateMenus() {
-    const isT = document.getElementById("trip-chk").checked;
-    const cS = document.getElementById("cym-sel");
-    const fS = document.getElementById("foot-sel");
+// --- NOTATION ---
+// --- INCONSISTENCY-PROOF LOGIC ---
+function getAccentLogic(p, i, h) { 
+    if(!document.getElementById('accent-mode').checked || !h) return false; 
+    const isTri = document.getElementById("triplet-mode").checked; 
     
-    cS.innerHTML = ""; fS.innerHTML = "";
-    
-    const cymList = isT ? Object.keys(POOLS.tCym) : Object.keys(POOLS.sCym);
-    const footList = isT ? Object.keys(POOLS.tFoot) : Object.keys(POOLS.sFoot);
-    
-    cymList.forEach(k => cS.add(new Option(k, k)));
-    footList.forEach(k => fS.add(new Option(k, k)));
+    // We convert everything to lowercase and remove weird fraction symbols for the check
+    const check = p.toLowerCase();
+    const pos = i % 4;
+
+    if(isTri){
+        const p3 = i % 3, p6 = i % 6;
+        if(check.includes('shuffle')) return p3 === 0;
+        if(check.includes('swing')) return p6 === 0;
+        if(check.includes('3:2')) return (p6 === 0 || p6 === 4);
+        return false;
+    } else {
+        // This covers "1/8 notes (up)", "⅛ notes (up)", and "up beats" all at once
+        if(check.includes('up')) return pos === 2;
+        if(check.includes('down')) return pos === 0;
+        if(check.includes('1 e &')) return pos === 2;
+        if(check.includes('e & a')) return pos === 3;
+        return false;
+    }
 }
 
-function generate(forceNew = false) {
-    const div = document.getElementById("output");
-    div.innerHTML = "";
-    const isT = document.getElementById("trip-chk").checked;
-    const sub = isT ? 3 : 4;
-
-    const renderer = new VF.Renderer(div, VF.Renderer.Backends.SVG);
-    renderer.resize(900, 400);
-    const ctx = renderer.getContext();
-
-    const stave = new VF.Stave(50, 40, 800).addClef("percussion").addTimeSignature("4/4").setContext(ctx).draw();
-
-    // 1. Get Patterns
-    const cymKey = document.getElementById("cym-sel").value;
-    const footKey = document.getElementById("foot-sel").value;
-    const cymPat = isT ? POOLS.tCym[cymKey] : POOLS.sCym[cymKey];
+// Update the menu to use standard characters only
+function updateMenus() { 
+    const isT = document.getElementById("triplet-mode").checked;
+    const isA = document.getElementById("accent-mode").checked;
+    const cS = document.getElementById("cymbal-select");
     
-    // 2. Generate Kick/Snare Pool if empty
-    if (forceNew || currentMid.length === 0) {
-        currentMid = [];
-        const pool = isT ? [[1,0,0], [0,1,0], [1,0,1]] : [[1,0,0,0], [0,1,0,0], [1,0,1,0]];
-        for (let i = 0; i < 4; i++) currentMid.push(pool[Math.floor(Math.random() * pool.length)]);
+    cS.innerHTML = "";
+    
+    // We force standard text names here so autocorrect can't mess them up
+    let list = [];
+    if(isT) {
+        list = isA ? ['shuffle', 'swing', '3:2 (down) shuffle'] : ['1/4 notes', 'shuffle', '3:2 (down)'];
+    } else {
+        list = isA ? ['1/8 notes (up)', '1/8 notes (down)', '1 e &'] : ['1/4 notes', 'up beats', '1/8 notes'];
     }
 
-    const voiceTopNotes = [];
-    const voiceBotNotes = [];
-    const beams = [];
+    list.forEach(k => {
+        let o = document.createElement("option");
+        o.value = k;
+        o.text = k;
+        cS.add(o);
+    });
+}
+function createNote(v, d, h, b, a=false) { const el = document.getElementById('element-select').value; let k, s, rK, cD = d.replace('r',''), aR = !h||d.includes('r'); if(v===0){ s=1; rK="B/5/r"; if(h) k=(el==='hi-hat')?"G/5/x2":(a?"G/5/d2":"G/5/x2"); } else if(v===1){ k=(b%2===0)?"F/4":"C/5"; s=-1; rK="C/4/r"; } else { k=h?"B/4/x2":"B/4/r"; s=-1; rK="B/4/r"; } const n = new VF.StaveNote({keys:[h? (k||"G/5/x2"):rK], duration:cD+(aR?"r":""), stem_direction:s}); if(h&&v===0&&a&&el==='hi-hat') n.addModifier(new VF.Articulation('ah').setPosition(3), 0); if(cD.includes('d')) VF.Dot.buildAndAttach([n],{all:true}); if(v===2) n.setKeyLine(0,2); else if(aR){ if(v===1) n.setKeyLine(0,1); if(v===0) n.setKeyLine(0,5); } return n; }
+function generate(f=false) { const d = document.getElementById("output"); d.innerHTML = ""; const isT = document.getElementById("triplet-mode").checked, sub = isT?3:4, tT = 4*sub, r = new VF.Renderer(d, VF.Renderer.Backends.SVG); r.resize(1000, 500); const ctx = r.getContext(), s1 = new VF.Stave(80, 40, 870).addClef("percussion").addTimeSignature("4/4").setContext(ctx).draw(), s2 = new VF.Stave(80, 200, 870); [0,1,3,4].forEach(l=>s2.setConfigForLine(l,{visible:false})); s2.addClef("percussion").addTimeSignature("4/4").setContext(ctx).draw(); new VF.StaveConnector(s1,s2).setType(VF.StaveConnector.type.BRACKET).setContext(ctx).draw(); if(f||!document.getElementById("freeze-bottom").checked||currentMid.length===0){ currentMid=[]; const p = isT?tMidPool:sMidPool; for(let i=0;i<4;i++) currentMid.push(p[Math.floor(Math.random()*p.length)]); } const vD=[[],[],[]], beams=[]; const cN = document.getElementById("cymbal-select").value, fN = document.getElementById("foot-select").value; for(let b=0;b<4;b++){ for(let vI=0;vI<3;vI++){ let sl=[], pat=(vI===0)?(isT?tCym:sCym)[cN]:(vI===2?(isT?tFoot:sFoot)[fN]:currentMid[b]); for(let i=0;i<sub;i++) sl.push(pat[(b*sub+i)%pat.length]); let fLB=true; for(let k=1;k<sub;k++) if(sl[k]!==0) fLB=false; if(fLB){ let cDur=isT?"4d":"4", hit=sl[0]===1, acc=(vI===0)?getAccentLogic(cN,b*sub,hit):false; vD[vI].push(createNote(vI,cDur,hit,b,acc)); } else { let bN=[]; for(let i=0;i<sub;i++){ let h=sl[i]===1, acc=(vI===0)?getAccentLogic(cN,b*sub+i,h):false, fD=isT?"8":"16"; if(!isT){ let eS=0; for(let j=i+1;j<sub;j++) if(sl[j]===0) eS++; else break; if(h){ if(eS===1){fD="8";i+=1;}else if(eS===2){fD="8d";i+=2;}else if(eS===3){fD="4";i+=3;}} else { if(eS===1){fD="8r";i+=1;}else if(eS===2){fD="8dr";i+=2;}else if(eS===3){fD="4r";i+=3;}else fD="16r";} } else if(!h) fD="8r"; let n=createNote(vI,fD,h,b,acc); bN.push(n); vD[vI].push(n); } let nTB=isT?bN:bN.filter(n=>!n.isRest()); if(nTB.length>=2) beams.push(new VF.Beam(nTB)); } } } const voices = vD.map(n=>new VF.Voice({num_beats:tT, beat_value:isT?8:16}).setStrict(false).addTickables(n)); new VF.Formatter().joinVoices([voices[0],voices[1]]).format([voices[0],voices[1]], 800); new VF.Formatter().joinVoices([voices[2]]).format([voices[2]], 800); voices[0].draw(ctx,s1); voices[1].draw(ctx,s1); voices[2].draw(ctx,s2); beams.forEach(b=>b.setContext(ctx).draw()); }
 
-    // 3. Loop through 4 beats
-    for (let b = 0; b < 4; b++) {
-        let beatTop = [];
-        let beatBot = [];
+// --- UPDATED AUDIO SECTION ---
+async function loadKit(k) {
+    // Added 'hihat_open' to the list below
+    const s = ['kick','snare','hihat','hihat_open','hihat_foot','ride','ride_bell','cowbell','cowbell_accent']; 
+    const nB = {};
+    for (const name of s) {
+        try {
+            const r = await fetch(`samples/${k}/${name}.wav`);
+            if(!r.ok) throw new Error();
+            const aB = await r.arrayBuffer();
+            nB[name] = await audioCtx.decodeAudioData(aB);
+        } catch(e) { console.warn(`Missing: ${name}. Using synth fallback.`); }
+    }
+    buffers = nB;
+}
 
-        for (let i = 0; i < sub; i++) {
-            const index = b * sub + i;
-            
-            // TOP VOICE (Cymbals)
-            const cHit = cymPat[index % cymPat.length] === 1;
-            const tNote = new VF.StaveNote({
-                keys: [cHit ? "G/5/x2" : "G/5/r"],
-                duration: isT ? "8" : "16",
-                stem_direction: 1
-            });
-            voiceTopNotes.push(tNote);
-            beatTop.push(tNote);
-
-            // BOTTOM VOICE (Kick/Snare)
-            const mHit = currentMid[b][i % currentMid[b].length] === 1;
-            const bNote = new VF.StaveNote({
-                keys: [mHit ? (b % 2 === 0 ? "F/4" : "C/5") : "C/4/r"],
-                duration: isT ? "8" : "16",
-                stem_direction: -1
-            });
-            voiceBotNotes.push(bNote);
-            beatBot.push(bNote);
-        }
-
-        // Create Beams for the beat (Filter out rests)
-        const tHits = beatTop.filter(n => !n.isRest());
-        if (tHits.length > 1) beams.push(new VF.Beam(tHits));
-
-        const bHits = beatBot.filter(n => !n.isRest());
-        if (bHits.length > 1) beams.push(new VF.Beam(bHits));
+function playDrum(n, t, isAcc = false) {
+    if(!audioCtx) return;
+    let sN = n;
+    
+    // Switchboard logic
+    if(isAcc){ 
+        if(n==='ride') sN='ride_bell'; 
+        else if(n==='cowbell') sN='cowbell_accent'; 
+        else if(n==='hihat') sN='hihat_open'; 
+    }
+    
+    // Play the buffer if it exists
+    if(buffers[sN]){ 
+        const s = audioCtx.createBufferSource(); 
+        s.buffer = buffers[sN]; 
+        s.connect(audioCtx.destination); 
+        s.start(t); 
+        return; 
+    }
+    
+    // Fallback: If hihat_open is missing, use regular hihat buffer
+    if(sN==='hihat_open' && buffers['hihat']) {
+        const s = audioCtx.createBufferSource();
+        s.buffer = buffers['hihat'];
+        s.connect(audioCtx.destination);
+        s.start(t);
+        return;
     }
 
-    // 4. Formatting
-    const v1 = new VF.Voice({ num_beats: 4, beat_value: 4 }).setStrict(false).addTickables(voiceTopNotes);
-    const v2 = new VF.Voice({ num_beats: 4, beat_value: 4 }).setStrict(false).addTickables(voiceBotNotes);
-    
-    new VF.Formatter().joinVoices([v1, v2]).format([v1, v2], 700);
+    // Synth fallbacks (rest of your existing code stays the same)
+    const d = audioCtx.destination;
+    if(n==='kick'){ /* ... your kick synth ... */ }
+    // ... etc
+}
 
-    v1.draw(ctx, stave);
-    v2.draw(ctx, stave);
-    beams.forEach(bm => bm.setContext(ctx).draw());
+function playDrum(n, t, isAcc = false) {
+    if(!audioCtx) return;
+    let sN = n;
+    if(isAcc){ if(n==='ride') sN='ride_bell'; if(n==='cowbell') sN='cowbell_accent'; if(n === 'hihat') sN = 'hihat_open'; }
+    if(buffers[sN]){ const s=audioCtx.createBufferSource(); s.buffer=buffers[sN]; s.connect(audioCtx.destination); s.start(t); return; }
+    // Fallback logic
+    if(sN==='ride_bell' && buffers['ride']) { const s=audioCtx.createBufferSource(); s.buffer=buffers['ride']; s.connect(audioCtx.destination); s.start(t); return; }
+    
+    const d = audioCtx.destination;
+    if(n==='kick'){ const o=audioCtx.createOscillator(), g=audioCtx.createGain(); o.frequency.setValueAtTime(120,t); o.frequency.exponentialRampToValueAtTime(0.01,t+0.4); g.gain.setValueAtTime(1.0,t); g.gain.exponentialRampToValueAtTime(0.01,t+0.4); o.connect(g).connect(d); o.start(t); o.stop(t+0.4); }
+    else if(n==='snare'){ const b=audioCtx.createBuffer(1,audioCtx.sampleRate*0.1,audioCtx.sampleRate), data=b.getChannelData(0); for(let i=0;i<b.length;i++) data[i]=Math.random()*2-1; const s=audioCtx.createBufferSource(), g=audioCtx.createGain(); s.buffer=b; g.gain.setValueAtTime(0.3,t); g.gain.exponentialRampToValueAtTime(0.01,t+0.15); s.connect(g).connect(d); s.start(t); }
+    else if(n==='cowbell' || n==='cowbell_accent'){ [800,540].forEach(f=>{ const o=audioCtx.createOscillator(), g=audioCtx.createGain(); o.type='square'; o.frequency.setValueAtTime(f,t); g.gain.setValueAtTime(0.1,t); g.gain.exponentialRampToValueAtTime(0.01,t+0.3); o.connect(g).connect(d); o.start(t); o.stop(t+0.3); }); }
+    else if(n.includes('hihat')){ const b=audioCtx.createBuffer(1,audioCtx.sampleRate*0.05,audioCtx.sampleRate), data=b.getChannelData(0); for(let i=0;i<b.length;i++) data[i]=Math.random()*2-1; const s=audioCtx.createBufferSource(), f=audioCtx.createBiquadFilter(), g=audioCtx.createGain(); f.type="highpass"; f.frequency.value=7000; s.buffer=b; g.gain.setValueAtTime(0.2,t); g.gain.exponentialRampToValueAtTime(0.01,t+0.05); s.connect(f).connect(g).connect(d); s.start(t); }
+    else if(n.includes('ride')){ const o=audioCtx.createOscillator(), g=audioCtx.createGain(); o.type='sine'; o.frequency.setValueAtTime(3000,t); g.gain.setValueAtTime(0.1,t); g.gain.exponentialRampToValueAtTime(0.01,t+0.6); o.connect(g).connect(d); o.start(t); o.stop(t+0.6); }
+}
+
+function scheduleSounds(t) {
+    const isT = document.getElementById("triplet-mode").checked, sub = isT?3:4;
+    const cN = document.getElementById("cymbal-select").value, el = document.getElementById('element-select').value, fN = document.getElementById("foot-select").value;
+    const cP = (isT?tCym:sCym)[cN], fP = (isT?tFoot:sFoot)[fN];
+
+    // Main Element (Ride/Hi-Hat/Cowbell)
+    if(cP && cP[currentBeat%cP.length]===1) {
+        // This 'getAccentLogic' part is what tells the app to look for 'open' or 'bell' sounds
+        const isAcc = getAccentLogic(cN, currentBeat, true);
+        playDrum(el==='hi-hat'?'hihat':el, t, isAcc);
+    }
+
+    // Kick and Snare
+    const bI = Math.floor(currentBeat/sub), sI = currentBeat%sub;
+    if(currentMid[bI] && currentMid[bI][sI]===1) playDrum(bI%2===0?'kick':'snare', t);
+
+    // Left Foot (always uses the 'chick' sound)
+    if(fP && fP[currentBeat%fP.length]===1) playDrum('hihat_foot', t);
+}
+
+function scheduler() {
+    const tempo = document.getElementById('tempo-slider').value, pocket = document.getElementById('pocket-slider').value/100, isT = document.getElementById("triplet-mode").checked;
+    const spb = 60.0/tempo, sps = isT?(spb/3):(spb/4);
+    while (nextNoteTime < audioCtx.currentTime + 0.1) {
+        let sI = currentBeat%(isT?3:4), aPT = nextNoteTime;
+        if(!isT && (sI===1||sI===3)) aPT += (sps*pocket);
+        scheduleSounds(aPT); nextNoteTime += sps; currentBeat = (currentBeat+1)%(isT?12:16);
+    }
+    timerID = setTimeout(scheduler, 25);
 }
 
 window.onload = () => {
     updateMenus();
-    document.getElementById("trip-chk").onchange = () => { updateMenus(); generate(); };
-    document.getElementById("cym-sel").onchange = () => generate();
-    document.getElementById("foot-sel").onchange = () => generate();
-    document.getElementById("el-sel").onchange = () => generate();
+    document.querySelectorAll("select, input").forEach(el => {
+        el.onchange = () => {
+            if (el.id === "tempo-slider" || el.id === "pocket-slider") return;
+            if (el.id === "triplet-mode" || el.id === "accent-mode") {
+                updateMenus();
+                document.getElementById("pocket-slider").disabled = document.getElementById("triplet-mode").checked;
+            }
+            generate();
+        };
+    });
     document.getElementById("gen-btn").onclick = () => generate(true);
+    document.getElementById('tempo-slider').oninput = (e) => document.getElementById('bpm-display').innerText = e.target.value;
+    document.getElementById('pocket-slider').oninput = (e) => document.getElementById('pocket-display').innerText = e.target.value;
+    document.getElementById('kit-select').onchange = async (e) => {
+        if (e.target.value === 'synthetic') { buffers = {}; return; }
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const btn = document.getElementById('metro-btn'), old = btn.innerText;
+        btn.innerText = "Loading Kit...";
+        await loadKit(e.target.value);
+        btn.innerText = old;
+    };
+    document.getElementById('metro-btn').onclick = async function() {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') await audioCtx.resume();
+        isPlaying = !isPlaying;
+        if (isPlaying) { currentBeat = 0; nextNoteTime = audioCtx.currentTime; scheduler(); this.innerText = "Stop Playback"; this.style.background = "#e74c3c"; }
+        else { clearTimeout(timerID); this.innerText = "Play Beat"; this.style.background = "#3498db"; }
+    };
     generate();
 };
 </script>
