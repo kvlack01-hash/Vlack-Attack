@@ -434,7 +434,7 @@ window.onload = () => {
     updateMenus();
     document.querySelectorAll("select, input").forEach(el => {
         el.onchange = () => {
-            if (el.id === "tempo-slider" || el.id === "pocket-slider") return;
+            if (el.id === "tempo-slider" || el.id === "pocket-slider" || el.id === "kit-select") return;
             if (el.id === "triplet-mode" || el.id === "accent-mode") {
                 updateMenus();
                 document.getElementById("pocket-slider").disabled = document.getElementById("triplet-mode").checked;
@@ -450,13 +450,25 @@ window.onload = () => {
 document.getElementById('tempo-slider').oninput = (e) => document.getElementById('bpm-display').innerText = e.target.value;
 document.getElementById('pocket-slider').oninput = (e) => document.getElementById('pocket-display').innerText = e.target.value;
 document.getElementById('kit-select').onchange = async (e) => {
-    if (e.target.value === 'synthetic') { buffers = {}; return; }
-    const btn = document.getElementById('metro-btn'), old = btn.innerText;
-    btn.innerText = "Loading Kit...";
-    // await loadKit(e.target.value); 
-    btn.innerText = old;
-};
+    const newKit = e.target.value;
+    if (newKit === 'synthetic') { buffers = {}; return; }
 
+    const btn = document.getElementById('metro-btn');
+    const oldLabel = btn.innerText;
+    
+    // Provide visual feedback that loading is happening
+    btn.innerText = "Loading Kit...";
+    btn.disabled = true;
+
+    try {
+        await loadKit(newKit);
+    } catch (err) {
+        console.error("Failed to swap kits:", err);
+    } finally {
+        btn.innerText = oldLabel;
+        btn.disabled = false;
+    }
+};
 document.getElementById('metro-btn').onclick = async function() {
     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     if (audioCtx.state === 'suspended') await audioCtx.resume();
