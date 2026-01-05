@@ -338,30 +338,45 @@ async function loadKit(kitName) {
     console.log("--- Kit Swap Complete ---");
 }
     
-// 2. Updated playDrum to use Samples first
+let activeHH = null; // Global tracker for the ringing hi-hat
+
 function playDrum(name, time, isAccent = false) {
     if (!audioCtx) return;
 
     let sampleID = name;
-
-    // Mapping logic for accents
     if (isAccent) {
         if (name === 'ride') sampleID = 'ride_bell';
         if (name === 'hihat') sampleID = 'hihat_open';
     }
 
-    // Try to play the sample
     if (buffers[sampleID]) {
         const source = audioCtx.createBufferSource();
+        const gainNode = audioCtx.createGain(); // Create a "volume knob"
+        
         source.buffer = buffers[sampleID];
-        source.connect(audioCtx.destination);
+        
+        // --- HI-HAT CHOKE LOGIC ---
+        if (sampleID.includes('hihat')) {
+            // If a hi-hat is already ringing, fade it out fast
+            if (activeHH) {
+                const fadeOutTime = 0.05; 
+                activeHH.gain.exponentialRampToValueAtTime(0.001, time + fadeOutTime);
+                activeHH.source.stop(time + fadeOutTime + 0.01);
+            }
+            // Store this new hi-hat as the active one
+            activeHH = { source: source, gain: gainNode };
+        }
+        // --------------------------
+
+        source.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        
         source.start(time);
     } else {
-        // Only the top voice gets a 'bing' so you know the rhythm is working
+        // Fallback oscillator logic for when samples aren't loaded
         if (name === 'ride' || name === 'hihat') {
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
-            osc.type = 'sine';
             osc.frequency.setValueAtTime(name === 'hihat' ? 8000 : 3000, time);
             gain.gain.setValueAtTime(0.1, time);
             gain.gain.exponentialRampToValueAtTime(0.01, time + 0.1);
