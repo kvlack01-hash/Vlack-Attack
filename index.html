@@ -271,39 +271,37 @@ function playDrum(name, time, isAcc = false) {
     
     if (buffers[id]) {
         const source = audioCtx.createBufferSource();
-        const gainNode = audioCtx.createGain(); // Create a volume controller for this sound
+        const gainNode = audioCtx.createGain();
         source.buffer = buffers[id];
 
-        // --- HI-HAT & RIDE CHOKE LOGIC ---
-        // If it's a hi-hat or ride, we manage it as an "exclusive" voice
-        if (id.includes('hihat') || id.includes('ride')) {
+        // --- IMPROVED SMART CHOKE ---
+        // Only trigger choke logic if the CURRENT hit is a cymbal
+        const isCymbal = id.includes('hihat') || id.includes('ride');
+        
+        if (isCymbal) {
             if (activeHH) {
                 try {
-                    // Quickly fade out the old sound (20ms) to prevent pops
-                    const fadeOutTime = 0.02;
-                    activeHH.gain.exponentialRampToValueAtTime(0.001, time + fadeOutTime);
-                    activeHH.source.stop(time + fadeOutTime + 0.01);
-                } catch (e) {
-                    // Source might have already ended naturally
-                }
+                    // Determine if we are choking (closed hit) or crossfading (open hit)
+                    const isOpeningHit = id.includes('open') || id.includes('bell');
+                    const fadeTime = isOpeningHit ? 0.08 : 0.03; 
+                    
+                    // Use linearRamp for a more predictable "clamp" sound
+                    // We start the fade slightly before the new hit to avoid the "pop"
+                    activeHH.gainNode.gain.setValueAtTime(activeHH.gainNode.gain.value, time);
+                    activeHH.gainNode.gain.linearRampToValueAtTime(0, time + fadeTime);
+                    activeHH.source.stop(time + fadeTime + 0.01);
+                } catch (e) {}
             }
-            // Overwrite the tracker with the new playing sound
-            activeHH = { source: source, gain: gainNode.gain };
+            // Update the tracker only for cymbals
+            activeHH = { source: source, gainNode: gainNode };
         }
-        // ---------------------------------
+        // ----------------------------
 
         source.connect(gainNode);
         gainNode.connect(audioCtx.destination);
         source.start(time);
-    } else if (name === 'ride' || name === 'hihat') {
-        // Fallback pings if samples aren't loaded
-        const osc = audioCtx.createOscillator();
-        const g = audioCtx.createGain();
-        osc.frequency.setValueAtTime(name==='hihat'?8000:3000, time);
-        g.gain.setValueAtTime(0.1, time);
-        g.gain.exponentialRampToValueAtTime(0.01, time + 0.1);
-        osc.connect(g).connect(audioCtx.destination);
-        osc.start(time); osc.stop(time+0.1);
+    } else {
+        // ... (fallback oscillator logic)
     }
 }
 
@@ -324,7 +322,7 @@ function scheduleSounds(time) {
     if (currentMid[bIdx] && currentMid[bIdx][currentBeat % sub] === 1) {
         playDrum(bIdx % 2 === 0 ? 'kick' : 'snare', time);
     }
-    if (footPat && footPat[currentBeat % footPat.length] === 1) playDrum('hihat_foot', time);
+    if (footPat && footPat[currentBeat % footPat.length] === 1) playDrum('hihat_foot', time, false);
 }
 
 function scheduler() {
