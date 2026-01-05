@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Vlack Attack v1.9.1</title>
+    <title>Vlack Attack v1.9.2</title>
     <script src="https://cdn.jsdelivr.net/npm/vexflow@4.2.2/build/cjs/vexflow.js"></script>
     <style>
         body { font-family: 'Segoe UI', sans-serif; text-align: center; background: #f0f2f5; padding: 20px; }
@@ -73,7 +73,16 @@
 
 <script>
 const VF = Vex.Flow;
+
+// --- GLOBAL STATE ---
+let audioCtx = null;
 let buffers = {};
+let isPlaying = false;
+let currentBeat = 0;
+let nextNoteTime = 0.0;
+let timerID = null;
+let currentMid = [];
+let activeHH = null; // Reserved for Choke Logic
 
 // --- RHYTHM DATA ---
 const tCymPlain = ['down beats', 'shuffle', 'swing', '3:2 (down)', '3:2 (up)', '3:4 v1', '3:4 v2', '3:4 v3'];
@@ -96,14 +105,7 @@ const sFoot = { 'down beats': [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0], '2 and 4': [
 const tMidPool = [[1,0,0], [0,1,0], [1,0,1], [0,0,1], [1,1,0], [0,1,1]];
 const sMidPool = [[1,0,0,0], [0,1,0,0], [0,0,1,0], [0,0,0,1], [1,0,1,0], [0,1,0,1], [1,1,0,0], [0,1,1,0], [0,0,1,1], [1,0,0,1], [1,1,1,0], [0,1,1,1], [1,0,1,1], [1,1,0,1]];
 
-let currentMid = [];
-let audioCtx = null;
-let isPlaying = false;
-let nextNoteTime = 0.0;
-let timerID = null;
-let currentBeat = 0;
-
-// --- LOGIC FUNCTIONS ---
+// --- UI & NOTATION ---
 function getAccentLogic(patternName, index, isHit) {
     if (!document.getElementById('accent-mode').checked || !isHit) return false;
     const isTri = document.getElementById("triplet-mode").checked;
@@ -138,47 +140,24 @@ function getAccentLogic(patternName, index, isHit) {
 function updateMenus() {
     const isTri = document.getElementById("triplet-mode").checked;
     const isAcc = document.getElementById("accent-mode").checked;
-    
-    // 1. Store what is currently selected before we wipe the menu
     const cSel = document.getElementById("cymbal-select");
     const previousCymbal = cSel.value;
-    
     const fSel = document.getElementById("foot-select");
     const previousFoot = fSel.value;
 
-    // 2. Clear and Rebuild Ride/Cymbal Menu
     cSel.innerHTML = "";
     let cymList = isTri ? (isAcc ? tCymAcc : tCymPlain) : (isAcc ? sCymAcc : sCymPlain);
-    
     cymList.forEach(k => { 
-        let o = document.createElement("option"); 
-        o.value = k; 
-        o.text = k.trim(); 
-        cSel.add(o); 
+        let o = document.createElement("option"); o.value = k; o.text = k.trim(); cSel.add(o); 
     });
+    cSel.value = Array.from(cSel.options).some(opt => opt.value === previousCymbal) ? previousCymbal : cSel.options[0].value;
 
-    // 3. Logic: Stay on pattern if it exists, otherwise default to index 0
-    if (Array.from(cSel.options).some(opt => opt.value === previousCymbal)) {
-        cSel.value = previousCymbal;
-    } else {
-        cSel.selectedIndex = 0;
-    }
-
-    // 4. Clear and Rebuild Foot Menu (usually stays the same, but good for safety)
     fSel.innerHTML = "";
     let fList = isTri ? Object.keys(tFoot) : Object.keys(sFoot);
     fList.forEach(k => { 
-        let o = document.createElement("option"); 
-        o.value = k; 
-        o.text = k; 
-        fSel.add(o); 
+        let o = document.createElement("option"); o.value = k; o.text = k; fSel.add(o); 
     });
-
-    if (Array.from(fSel.options).some(opt => opt.value === previousFoot)) {
-        fSel.value = previousFoot;
-    } else {
-        fSel.selectedIndex = 0;
-    }
+    fSel.value = Array.from(fSel.options).some(opt => opt.value === previousFoot) ? previousFoot : fSel.options[0].value;
 }
 
 function createNote(vIdx, dur, isHit, bIdx, isAcc = false) {
@@ -188,48 +167,26 @@ function createNote(vIdx, dur, isHit, bIdx, isAcc = false) {
     let actualRest = !isHit || dur.includes('r');
 
     if (vIdx === 0) {
-        stem = 1; 
-        restKey = "G/5/r"; 
-        
-        if (isHit) {
-            if (element === 'hi-hat') {
-                // Hi-hats always use x2
-                key = "G/5/x2";
-            } else {
-                // Ride uses d2 (diamond) for accents, x2 for plain
-                key = isAcc ? "G/5/d2" : "G/5/x2";
-            }
-        }
+        stem = 1; restKey = "G/5/r";
+        if (isHit) key = (element === 'hi-hat') ? "G/5/x2" : (isAcc ? "G/5/d2" : "G/5/x2");
     } else if (vIdx === 1) {
-        key = (bIdx % 2 === 0) ? "F/4" : "C/5"; 
-        stem = -1; 
-        restKey = "C/4/r";
+        key = (bIdx % 2 === 0) ? "F/4" : "C/5"; stem = -1; restKey = "C/4/r";
     } else {
-        key = isHit ? "B/4/x2" : "B/4/r"; 
-        stem = -1; 
-        restKey = "B/4/r";
+        key = isHit ? "B/4/x2" : "B/4/r"; stem = -1; restKey = "B/4/r";
     }
 
     const note = new VF.StaveNote({ 
-        keys: [isHit ? (key || "G/5/x2") : restKey], 
-        duration: cleanDur + (actualRest ? "r" : ""), 
-        stem_direction: stem 
+        keys: [isHit ? (key || "G/5/x2") : restKey], duration: cleanDur + (actualRest ? "r" : ""), stem_direction: stem 
     });
 
-    // Handle Open Hi-Hat "ah" circle for accents
-    if (isHit && vIdx === 0 && isAcc && element === 'hi-hat') {
-        note.addModifier(new VF.Articulation('ah').setPosition(3), 0);
-    }
-
+    if (isHit && vIdx === 0 && isAcc && element === 'hi-hat') note.addModifier(new VF.Articulation('ah').setPosition(3), 0);
     if (cleanDur.includes('d')) VF.Dot.buildAndAttach([note], { all: true });
     
-    if (vIdx === 2) {
-        note.setKeyLine(0, 2); 
-    } else if (actualRest) { 
+    if (vIdx === 2) note.setKeyLine(0, 2); 
+    else if (actualRest) { 
         if (vIdx === 1) note.setKeyLine(0, 1); 
         if (vIdx === 0) note.setKeyLine(0, 5); 
     }
-    
     return note;
 }
 
@@ -238,17 +195,14 @@ function generate(forceRandom = false) {
     div.innerHTML = "";
     const isTri = document.getElementById("triplet-mode").checked;
     const sub = isTri ? 3 : 4;
-    const totalTicks = 4 * sub;
     const renderer = new VF.Renderer(div, VF.Renderer.Backends.SVG);
-    renderer.resize(1000, 600);
+    renderer.resize(1000, 500);
     const ctx = renderer.getContext();
     const s1 = new VF.Stave(80, 80, 870).addClef("percussion").addTimeSignature("4/4").setContext(ctx).draw();
     const s2 = new VF.Stave(80, 260, 870);
     [0, 1, 3, 4].forEach(line => s2.setConfigForLine(line, { visible: false }));
     s2.addClef("percussion").addTimeSignature("4/4").setContext(ctx).draw();
     new VF.StaveConnector(s1, s2).setType(VF.StaveConnector.type.BRACKET).setContext(ctx).draw();
-    new VF.StaveConnector(s1, s2).setType(VF.StaveConnector.type.SINGLE_LEFT).setContext(ctx).draw();
-    new VF.StaveConnector(s1, s2).setType(VF.StaveConnector.type.SINGLE_RIGHT).setContext(ctx).draw();
 
     if (forceRandom || !document.getElementById("freeze-bottom").checked || currentMid.length === 0) {
         currentMid = [];
@@ -262,23 +216,9 @@ function generate(forceRandom = false) {
     for (let b = 0; b < 4; b++) {
         for (let vIdx = 0; vIdx < 3; vIdx++) {
             let slice = [], pat = (vIdx === 0) ? (isTri?tCym:sCym)[cymName] : (vIdx === 2 ? (isTri?tFoot:sFoot)[footName] : currentMid[b]);
-            // --- NOTATION OVERRIDE START ---
-            const isAccMode = document.getElementById('accent-mode').checked;
-            if (vIdx === 0 && isAccMode) {
-                if (isTri) {
-                    if (cymName === '3:2 (down)' || cymName === '3:2 (up)') {
-                        pat = [1,0,1,0,1,0, 1,0,1,0,1,0];
-                    }
-                } else {
-                    if (cymName === 'down beats' || cymName === 'up beats') {
-                        pat = [1,0,1,0]; 
-                    }
-                }
-            }
-            // --- NOTATION OVERRIDE END ---
             for (let i = 0; i < sub; i++) slice.push(pat[(b * sub + i) % pat.length]);
-            let isFullBeat = true;
-            for(let k=1; k < sub; k++) if(slice[k] !== 0) isFullBeat = false;
+            
+            let isFullBeat = slice.slice(1).every(v => v === 0);
             if (isFullBeat) {
                 let cDur = isTri ? "4d" : "4", hit = slice[0] === 1, acc = (vIdx === 0) ? getAccentLogic(cymName, b * sub, hit) : false;
                 vData[vIdx].push(createNote(vIdx, cDur, hit, b, acc));
@@ -287,88 +227,58 @@ function generate(forceRandom = false) {
                 for (let i = 0; i < sub; i++) {
                     let hit = slice[i] === 1, acc = (vIdx === 0) ? getAccentLogic(cymName, b * sub + i, hit) : false, finalDur = isTri ? "8" : "16";
                     if (!isTri) {
-                        let emptySlots = 0;
-                        for (let j = i + 1; j < sub; j++) if (slice[j] === 0) emptySlots++; else break;
-                        if (hit) { if (emptySlots === 1) { finalDur = "8"; i += 1; } else if (emptySlots === 2) { finalDur = "8d"; i += 2; } else if (emptySlots === 3) { finalDur = "4"; i += 3; } }
-                        else { if (emptySlots === 1) { finalDur = "8r"; i += 1; } else if (emptySlots === 2) { finalDur = "8dr"; i += 2; } else if (emptySlots === 3) { finalDur = "4r"; i += 3; } else finalDur = "16r"; }
+                        let empty = 0; for (let j = i+1; j < sub; j++) if (slice[j] === 0) empty++; else break;
+                        if (hit) { if (empty === 1) { finalDur = "8"; i+=1; } else if (empty === 2) { finalDur = "8d"; i+=2; } else if (empty === 3) { finalDur = "4"; i+=3; } }
+                        else { if (empty === 1) { finalDur = "8r"; i+=1; } else if (empty === 2) { finalDur = "8dr"; i+=2; } else if (empty === 3) { finalDur = "4r"; i+=3; } else finalDur = "16r"; }
                     } else if (!hit) finalDur = "8r";
                     let n = createNote(vIdx, finalDur, hit, b, acc);
                     bNotes.push(n); vData[vIdx].push(n);
                 }
-                let notesToBeam = isTri ? bNotes : bNotes.filter(n => !n.isRest());
-                if (notesToBeam.length >= 2) beams.push(new VF.Beam(notesToBeam));
+                let nBeam = isTri ? bNotes : bNotes.filter(n => !n.isRest());
+                if (nBeam.length >= 2) beams.push(new VF.Beam(nBeam));
             }
         }
     }
-    const voices = vData.map(notes => new VF.Voice({num_beats: totalTicks, beat_value: isTri ? 8 : 16}).setStrict(false).addTickables(notes));
-    new VF.Formatter().joinVoices([voices[0], voices[1]]).format([voices[0], voices[1]], 800);
+    const voices = vData.map(notes => new VF.Voice({num_beats: sub*4, beat_value: isTri ? 8 : 16}).setStrict(false).addTickables(notes));
+    new VF.Formatter().joinVoices(voices.slice(0,2)).format(voices.slice(0,2), 800);
     new VF.Formatter().joinVoices([voices[2]]).format([voices[2]], 800);
     voices[0].draw(ctx, s1); voices[1].draw(ctx, s1); voices[2].draw(ctx, s2);
     beams.forEach(b => b.setContext(ctx).draw());
 }
 
-// --- UPDATED AUDIO ENGINE ---
-
+// --- AUDIO ENGINE ---
 async function loadKit(kitName) {
     const names = ['kick', 'snare', 'hihat', 'hihat_open', 'hihat_foot', 'ride', 'ride_bell'];
-    const newBuffers = {}; // Load into a temporary container first
-
-    console.log(`--- Starting Load for Kit: ${kitName} ---`);
-
+    const newBuffers = {};
+    console.log(`--- Loading Kit: ${kitName} ---`);
     for (const name of names) {
         try {
-            const response = await fetch(`samples/${kitName}/${name}.wav`);
-            
-            if (!response.ok) {
-                console.error(`❌ Missing: samples/${kitName}/${name}.wav`);
-                continue;
-            }
-
-            const arrayBuffer = await response.arrayBuffer();
-            // Decode the audio into the temporary container
-            newBuffers[name] = await audioCtx.decodeAudioData(arrayBuffer);
-            console.log(`✅ Loaded: ${name}.wav`);
-        } catch (e) {
-            console.error(`❌ Error decoding: ${name}.wav`, e);
-        }
+            const resp = await fetch(`samples/${kitName}/${name}.wav`);
+            if (resp.ok) newBuffers[name] = await audioCtx.decodeAudioData(await resp.arrayBuffer());
+        } catch (e) { console.error("Load error:", name, e); }
     }
-
-    // ONLY SWAP NOW: This prevents the "silence" while loading
-    buffers = newBuffers; 
-    console.log("--- Kit Swap Complete ---");
+    buffers = newBuffers;
+    console.log("--- Kit Ready ---");
 }
-    
-// 2. Updated playDrum to use Samples first
-function playDrum(name, time, isAccent = false) {
+
+function playDrum(name, time, isAcc = false) {
     if (!audioCtx) return;
-
-    let sampleID = name;
-
-    // Mapping logic for accents
-    if (isAccent) {
-        if (name === 'ride') sampleID = 'ride_bell';
-        if (name === 'hihat') sampleID = 'hihat_open';
-    }
-
-    // Try to play the sample
-    if (buffers[sampleID]) {
+    let id = name;
+    if (isAcc) { if(name==='ride') id='ride_bell'; if(name==='hihat') id='hihat_open'; }
+    
+    if (buffers[id]) {
         const source = audioCtx.createBufferSource();
-        source.buffer = buffers[sampleID];
+        source.buffer = buffers[id];
         source.connect(audioCtx.destination);
         source.start(time);
-    } else {
-        // Only the top voice gets a 'bing' so you know the rhythm is working
-        if (name === 'ride' || name === 'hihat') {
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(name === 'hihat' ? 8000 : 3000, time);
-            gain.gain.setValueAtTime(0.1, time);
-            gain.gain.exponentialRampToValueAtTime(0.01, time + 0.1);
-            osc.connect(gain).connect(audioCtx.destination);
-            osc.start(time);
-            osc.stop(time + 0.1);
-        }
+    } else if (name === 'ride' || name === 'hihat') {
+        const osc = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        osc.frequency.setValueAtTime(name==='hihat'?8000:3000, time);
+        g.gain.setValueAtTime(0.1, time);
+        g.gain.exponentialRampToValueAtTime(0.01, time + 0.1);
+        osc.connect(g).connect(audioCtx.destination);
+        osc.start(time); osc.stop(time+0.1);
     }
 }
 
@@ -382,67 +292,45 @@ function scheduleSounds(time) {
     const cymPat = (isTri ? tCym : sCym)[cymName];
     const footPat = (isTri ? tFoot : sFoot)[footName];
 
-    // 1. TOP VOICE (Ride/Hi-Hat)
     if (cymPat && cymPat[currentBeat % cymPat.length] === 1) {
-        const isAcc = getAccentLogic(cymName, currentBeat, true);
-        playDrum(el === 'hi-hat' ? 'hihat' : el, time, isAcc);
+        playDrum(el==='hi-hat'?'hihat':el, time, getAccentLogic(cymName, currentBeat, true));
     }
-
-    // 2. MIDDLE VOICE (Kick/Snare) - THE FIX IS HERE
-    // We use modulo 4 to ensure bIdx is always 0, 1, 2, or 3
-    const bIdx = Math.floor(currentBeat / sub) % 4; 
-    const sIdx = currentBeat % sub;
-    
-    if (currentMid[bIdx] && currentMid[bIdx][sIdx] === 1) {
-        const drumType = (bIdx % 2 === 0) ? 'kick' : 'snare';
-        playDrum(drumType, time);
+    const bIdx = Math.floor(currentBeat / sub) % 4;
+    if (currentMid[bIdx] && currentMid[bIdx][currentBeat % sub] === 1) {
+        playDrum(bIdx % 2 === 0 ? 'kick' : 'snare', time);
     }
-
-    // 3. BOTTOM VOICE (Left Foot)
-    if (footPat && footPat[currentBeat % footPat.length] === 1) {
-        playDrum('hihat_foot', time);
-    }
+    if (footPat && footPat[currentBeat % footPat.length] === 1) playDrum('hihat_foot', time);
 }
 
 function scheduler() {
     const tempo = document.getElementById('tempo-slider').value;
     const pocket = document.getElementById('pocket-slider').value / 100;
     const isTri = document.getElementById("triplet-mode").checked;
-    
-    const spb = 60.0 / tempo;
-    const sps = isTri ? (spb / 3) : (spb / 4);
+    const sps = (60.0 / tempo) / (isTri ? 3 : 4);
 
-    // Increasing the lookahead to 0.15 or 0.2 prevents audio "crackling" on slower devices
     while (nextNoteTime < audioCtx.currentTime + 0.15) {
         let subIdx = currentBeat % (isTri ? 3 : 4);
-        let actualPlayTime = nextNoteTime;
+        let playTime = nextNoteTime;
+        if (!isTri && (subIdx === 1 || subIdx === 3)) playTime += (sps * pocket);
         
-        // Apply pocket/swing only to even-numbered subdivisions in straight mode
-        if (!isTri && (subIdx === 1 || subIdx === 3)) {
-            actualPlayTime += (sps * pocket);
-        }
-        
-        scheduleSounds(actualPlayTime);
+        scheduleSounds(playTime);
         nextNoteTime += sps;
         currentBeat = (currentBeat + 1) % 48;
     }
     timerID = setTimeout(scheduler, 25);
 }
 
-// --- INITIALIZATION ---
+// --- EVENT HANDLERS ---
 window.onload = () => {
     updateMenus();
     document.querySelectorAll("select, input").forEach(el => {
-        // If it's a kit-select, we don't want the "generate" logic to touch it
-        if (el.id === "kit-select") return; 
-
+        if (el.id === "kit-select") return;
         el.onchange = () => {
-            if (el.id === "tempo-slider" || el.id === "pocket-slider") return;
             if (el.id === "triplet-mode" || el.id === "accent-mode") {
                 updateMenus();
                 document.getElementById("pocket-slider").disabled = document.getElementById("triplet-mode").checked;
             }
-            generate();
+            if (el.type !== 'range') generate();
         };
     });
     document.getElementById("gen-btn").onclick = () => generate(true);
@@ -451,85 +339,34 @@ window.onload = () => {
 
 document.getElementById('tempo-slider').oninput = (e) => document.getElementById('bpm-display').innerText = e.target.value;
 document.getElementById('pocket-slider').oninput = (e) => document.getElementById('pocket-display').innerText = e.target.value;
-document.getElementById('kit-select').onchange = async (e) => {
-    const newKit = e.target.value;
-    console.log("Change detected! Selected kit:", newKit);
 
-    if (newKit === 'synthetic') { 
-        buffers = {}; 
-        return; 
-    }
-
-    // Ensure we have the context
-    if (!audioCtx) {
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    }
-
-    const btn = document.getElementById('metro-btn');
-    const oldLabel = btn.innerText;
-
-    // Visual feedback
-    btn.innerText = "Loading " + newKit + "...";
-    
-    try {
-        console.log("Starting background load...");
-        await loadKit(newKit); 
-        console.log("Swap successful! Buffers updated.");
-    } catch (err) {
-        console.error("Hot-swap failed:", err);
-    } finally {
-        // Restore button text based on current play state
-        btn.innerText = isPlaying ? "Stop Playback" : "Play Beat";
-    }
-};
 document.getElementById('metro-btn').onclick = async function() {
-    // 1. Initialize Audio
     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    
-    // 2. Crucial: Always resume the context in case the browser paused it
     if (audioCtx.state === 'suspended') await audioCtx.resume();
-
     isPlaying = !isPlaying;
 
-    if (isPlaying) { 
-        // 3. KEY FIX: Check if the currently loaded kit matches the dropdown selection
-        // If the user changed the kit while the beat was stopped, we catch it here.
-        const selectedKit = document.getElementById('kit-select').value;
-        
-        // We only trigger a load if it's not 'synthetic' and we need to refresh
-        if (selectedKit !== 'synthetic') {
+    if (isPlaying) {
+        const kit = document.getElementById('kit-select').value;
+        if (Object.keys(buffers).length === 0) {
             this.innerText = "Loading...";
-            await loadKit(selectedKit);
+            await loadKit(kit);
         }
-
-        currentBeat = 0; 
-        nextNoteTime = audioCtx.currentTime; 
-        scheduler(); 
-        this.innerText = "Stop Playback"; 
-    } else { 
-        clearTimeout(timerID); 
-        this.innerText = "Play Beat"; 
+        currentBeat = 0;
+        nextNoteTime = audioCtx.currentTime + 0.05;
+        this.innerText = "Stop Playback";
+        scheduler();
+    } else {
+        clearTimeout(timerID);
+        this.innerText = "Play Beat";
     }
 };
 
-    // THIS MUST BE OUTSIDE OF WINDOW.ONLOAD
 document.getElementById('kit-select').addEventListener('change', async (e) => {
-    const newKit = e.target.value;
-    console.log("!!! KIT CHANGE DETECTED !!! ->", newKit);
-
-    // Initialize audio context if it's the first interaction
     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    if (audioCtx.state === 'suspended') await audioCtx.resume();
-
     const btn = document.getElementById('metro-btn');
-    const oldLabel = btn.innerText;
-
-    btn.innerText = "🔄 Loading " + newKit + "...";
-    
-    await loadKit(newKit); 
-
+    btn.innerText = "🔄 Loading...";
+    await loadKit(e.target.value);
     btn.innerText = isPlaying ? "Stop Playback" : "Play Beat";
-    console.log("Hot Swap Complete for:", newKit);
 });
 </script>
 </body>
