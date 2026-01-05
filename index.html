@@ -264,14 +264,39 @@ async function loadKit(kitName) {
 function playDrum(name, time, isAcc = false) {
     if (!audioCtx) return;
     let id = name;
-    if (isAcc) { if(name==='ride') id='ride_bell'; if(name==='hihat') id='hihat_open'; }
+    if (isAcc) { 
+        if(name==='ride') id='ride_bell'; 
+        if(name==='hihat') id='hihat_open'; 
+    }
     
     if (buffers[id]) {
         const source = audioCtx.createBufferSource();
+        const gainNode = audioCtx.createGain(); // Create a volume controller for this sound
         source.buffer = buffers[id];
-        source.connect(audioCtx.destination);
+
+        // --- HI-HAT & RIDE CHOKE LOGIC ---
+        // If it's a hi-hat or ride, we manage it as an "exclusive" voice
+        if (id.includes('hihat') || id.includes('ride')) {
+            if (activeHH) {
+                try {
+                    // Quickly fade out the old sound (20ms) to prevent pops
+                    const fadeOutTime = 0.02;
+                    activeHH.gain.exponentialRampToValueAtTime(0.001, time + fadeOutTime);
+                    activeHH.source.stop(time + fadeOutTime + 0.01);
+                } catch (e) {
+                    // Source might have already ended naturally
+                }
+            }
+            // Overwrite the tracker with the new playing sound
+            activeHH = { source: source, gain: gainNode.gain };
+        }
+        // ---------------------------------
+
+        source.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
         source.start(time);
     } else if (name === 'ride' || name === 'hihat') {
+        // Fallback pings if samples aren't loaded
         const osc = audioCtx.createOscillator();
         const g = audioCtx.createGain();
         osc.frequency.setValueAtTime(name==='hihat'?8000:3000, time);
@@ -355,9 +380,11 @@ document.getElementById('metro-btn').onclick = async function() {
         nextNoteTime = audioCtx.currentTime + 0.05;
         this.innerText = "Stop Playback";
         scheduler();
-    } else {
-        clearTimeout(timerID);
-        this.innerText = "Play Beat";
+    } else { 
+        clearTimeout(timerID); 
+        if (activeHH && activeHH.source) activeHH.source.stop(); // Stop any lingering ring
+        activeHH = null; 
+        this.innerText = "Play Beat"; 
     }
 };
 
