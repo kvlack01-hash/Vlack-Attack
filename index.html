@@ -340,6 +340,9 @@ async function loadKit(kitName) {
     
 let activeHH = null; // Global tracker for the ringing hi-hat
 
+// MAKE SURE THIS IS AT THE TOP OF THE SCRIPT
+let activeHH = null; 
+
 function playDrum(name, time, isAccent = false) {
     if (!audioCtx) return;
 
@@ -351,39 +354,30 @@ function playDrum(name, time, isAccent = false) {
 
     if (buffers[sampleID]) {
         const source = audioCtx.createBufferSource();
-        const gainNode = audioCtx.createGain(); // Create a "volume knob"
-        
+        const gainNode = audioCtx.createGain();
         source.buffer = buffers[sampleID];
-        
-        // --- HI-HAT CHOKE LOGIC ---
+
         if (sampleID.includes('hihat')) {
-            // If a hi-hat is already ringing, fade it out fast
-            if (activeHH) {
-                const fadeOutTime = 0.05; 
-                activeHH.gain.exponentialRampToValueAtTime(0.001, time + fadeOutTime);
-                activeHH.source.stop(time + fadeOutTime + 0.01);
+            if (activeHH && activeHH.gain) {
+                try {
+                    // Use a slightly longer fade (0.02s) to ensure the browser captures it
+                    const chokeTime = Math.max(time, audioCtx.currentTime);
+                    activeHH.gain.gain.exponentialRampToValueAtTime(0.001, chokeTime + 0.02);
+                    activeHH.source.stop(chokeTime + 0.03);
+                } catch (e) {
+                    // Silently catch if the previous source already stopped
+                }
             }
-            // Store this new hi-hat as the active one
             activeHH = { source: source, gain: gainNode };
         }
-        // --------------------------
 
         source.connect(gainNode);
         gainNode.connect(audioCtx.destination);
         
+        // Start the sound exactly at the scheduled time
         source.start(time);
     } else {
-        // Fallback oscillator logic for when samples aren't loaded
-        if (name === 'ride' || name === 'hihat') {
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.frequency.setValueAtTime(name === 'hihat' ? 8000 : 3000, time);
-            gain.gain.setValueAtTime(0.1, time);
-            gain.gain.exponentialRampToValueAtTime(0.01, time + 0.1);
-            osc.connect(gain).connect(audioCtx.destination);
-            osc.start(time);
-            osc.stop(time + 0.1);
-        }
+        // ... (Keep your oscillator fallback here)
     }
 }
 
@@ -428,7 +422,7 @@ function scheduler() {
     const sps = isTri ? (spb / 3) : (spb / 4);
 
     // Increasing the lookahead to 0.15 or 0.2 prevents audio "crackling" on slower devices
-    while (nextNoteTime < audioCtx.currentTime + 0.15) {
+    while (nextNoteTime < audioCtx.currentTime + 0.2) {
         let subIdx = currentBeat % (isTri ? 3 : 4);
         let actualPlayTime = nextNoteTime;
         
