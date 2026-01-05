@@ -433,8 +433,11 @@ function scheduler() {
 window.onload = () => {
     updateMenus();
     document.querySelectorAll("select, input").forEach(el => {
+        // If it's a kit-select, we don't want the "generate" logic to touch it
+        if (el.id === "kit-select") return; 
+
         el.onchange = () => {
-            if (el.id === "tempo-slider" || el.id === "pocket-slider" || el.id === "kit-select") return;
+            if (el.id === "tempo-slider" || el.id === "pocket-slider") return;
             if (el.id === "triplet-mode" || el.id === "accent-mode") {
                 updateMenus();
                 document.getElementById("pocket-slider").disabled = document.getElementById("triplet-mode").checked;
@@ -443,7 +446,6 @@ window.onload = () => {
         };
     });
     document.getElementById("gen-btn").onclick = () => generate(true);
-    document.getElementById('metro-btn').innerText = "Play Beat";
     generate();
 };
 
@@ -509,6 +511,26 @@ document.getElementById('metro-btn').onclick = async function() {
         this.innerText = "Play Beat"; 
     }
 };
+
+    // THIS MUST BE OUTSIDE OF WINDOW.ONLOAD
+document.getElementById('kit-select').addEventListener('change', async (e) => {
+    const newKit = e.target.value;
+    console.log("!!! KIT CHANGE DETECTED !!! ->", newKit);
+
+    // Initialize audio context if it's the first interaction
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') await audioCtx.resume();
+
+    const btn = document.getElementById('metro-btn');
+    const oldLabel = btn.innerText;
+
+    btn.innerText = "🔄 Loading " + newKit + "...";
+    
+    await loadKit(newKit); 
+
+    btn.innerText = isPlaying ? "Stop Playback" : "Play Beat";
+    console.log("Hot Swap Complete for:", newKit);
+});
 </script>
 </body>
 </html>
