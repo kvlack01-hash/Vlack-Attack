@@ -74,6 +74,13 @@
 <script>
 const VF = Vex.Flow;
 let buffers = {};
+let audioCtx = null;
+let isPlaying = false;
+let nextNoteTime = 0.0;
+let timerID = null;
+let currentBeat = 0;
+let currentMid = [];
+let activeHH = null; // The hi-hat tracker
 
 // --- RHYTHM DATA ---
 const tCymPlain = ['down beats', 'shuffle', 'swing', '3:2 (down)', '3:2 (up)', '3:4 v1', '3:4 v2', '3:4 v3'];
@@ -357,27 +364,33 @@ function playDrum(name, time, isAccent = false) {
         const gainNode = audioCtx.createGain();
         source.buffer = buffers[sampleID];
 
+        // --- HI-HAT CHOKE ---
         if (sampleID.includes('hihat')) {
-            if (activeHH && activeHH.gain) {
+            if (activeHH) {
                 try {
-                    // Use a slightly longer fade (0.02s) to ensure the browser captures it
-                    const chokeTime = Math.max(time, audioCtx.currentTime);
-                    activeHH.gain.gain.exponentialRampToValueAtTime(0.001, chokeTime + 0.02);
-                    activeHH.source.stop(chokeTime + 0.03);
-                } catch (e) {
-                    // Silently catch if the previous source already stopped
-                }
+                    // Quick fade out old HH
+                    activeHH.gainNode.gain.exponentialRampToValueAtTime(0.001, time);
+                    activeHH.source.stop(time + 0.02);
+                } catch (e) {}
             }
-            activeHH = { source: source, gain: gainNode };
+            activeHH = { source: source, gainNode: gainNode };
         }
 
         source.connect(gainNode);
         gainNode.connect(audioCtx.destination);
-        
-        // Start the sound exactly at the scheduled time
         source.start(time);
     } else {
-        // ... (Keep your oscillator fallback here)
+        // Fallback pings
+        if (name === 'ride' || name === 'hihat') {
+            const osc = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            osc.frequency.setValueAtTime(name === 'hihat' ? 8000 : 3000, time);
+            g.gain.setValueAtTime(0.1, time);
+            g.gain.exponentialRampToValueAtTime(0.01, time + 0.1);
+            osc.connect(g).connect(audioCtx.destination);
+            osc.start(time);
+            osc.stop(time + 0.1);
+        }
     }
 }
 
@@ -415,23 +428,13 @@ function scheduleSounds(time) {
 
 function scheduler() {
     const tempo = document.getElementById('tempo-slider').value;
-    const pocket = document.getElementById('pocket-slider').value / 100;
-    const isTri = document.getElementById("triplet-mode").checked;
-    
     const spb = 60.0 / tempo;
+    const isTri = document.getElementById("triplet-mode").checked;
     const sps = isTri ? (spb / 3) : (spb / 4);
 
-    // Increasing the lookahead to 0.15 or 0.2 prevents audio "crackling" on slower devices
-    while (nextNoteTime < audioCtx.currentTime + 0.2) {
-        let subIdx = currentBeat % (isTri ? 3 : 4);
-        let actualPlayTime = nextNoteTime;
-        
-        // Apply pocket/swing only to even-numbered subdivisions in straight mode
-        if (!isTri && (subIdx === 1 || subIdx === 3)) {
-            actualPlayTime += (sps * pocket);
-        }
-        
-        scheduleSounds(actualPlayTime);
+    // Look ahead 0.25s to stay ahead of the clock
+    while (nextNoteTime < audioCtx.currentTime + 0.25) {
+        scheduleSounds(nextNoteTime);
         nextNoteTime += sps;
         currentBeat = (currentBeat + 1) % 48;
     }
