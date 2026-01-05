@@ -451,10 +451,14 @@ document.getElementById('tempo-slider').oninput = (e) => document.getElementById
 document.getElementById('pocket-slider').oninput = (e) => document.getElementById('pocket-display').innerText = e.target.value;
 document.getElementById('kit-select').onchange = async (e) => {
     const newKit = e.target.value;
-    if (newKit === 'synthetic') { buffers = {}; return; }
+    console.log("Change detected! Selected kit:", newKit);
 
-    // If audioCtx isn't started yet (user hasn't hit play), 
-    // we should initialize it so we can decode the audio
+    if (newKit === 'synthetic') { 
+        buffers = {}; 
+        return; 
+    }
+
+    // Ensure we have the context
     if (!audioCtx) {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     }
@@ -462,13 +466,19 @@ document.getElementById('kit-select').onchange = async (e) => {
     const btn = document.getElementById('metro-btn');
     const oldLabel = btn.innerText;
 
-    // Visual feedback so the user knows a swap is happening in the background
-    btn.innerText = "Swapping Kit...";
+    // Visual feedback
+    btn.innerText = "Loading " + newKit + "...";
     
-    // We DON'T stop the audio. We just await the new files.
-    await loadKit(newKit); 
-
-    btn.innerText = isPlaying ? "Stop Playback" : "Play Beat";
+    try {
+        console.log("Starting background load...");
+        await loadKit(newKit); 
+        console.log("Swap successful! Buffers updated.");
+    } catch (err) {
+        console.error("Hot-swap failed:", err);
+    } finally {
+        // Restore button text based on current play state
+        btn.innerText = isPlaying ? "Stop Playback" : "Play Beat";
+    }
 };
 document.getElementById('metro-btn').onclick = async function() {
     // 1. Initialize Audio
