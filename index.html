@@ -498,29 +498,29 @@ document.getElementById('kit-select').onchange = async (e) => {
     }
 };
 document.getElementById('metro-btn').onclick = async function() {
-    // 1. Initialize Audio
     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     
-    // 2. Crucial: Always resume the context in case the browser paused it
+    // 1. Force the context to wake up
     if (audioCtx.state === 'suspended') await audioCtx.resume();
 
     isPlaying = !isPlaying;
 
     if (isPlaying) { 
-        // 3. KEY FIX: Check if the currently loaded kit matches the dropdown selection
-        // If the user changed the kit while the beat was stopped, we catch it here.
         const selectedKit = document.getElementById('kit-select').value;
         
-        // We only trigger a load if it's not 'synthetic' and we need to refresh
-        if (selectedKit !== 'synthetic') {
+        // 2. Only load if we actually have to
+        if (selectedKit !== 'synthetic' && Object.keys(buffers).length === 0) {
             this.innerText = "Loading...";
             await loadKit(selectedKit);
         }
 
+        // 3. THE CRITICAL FIX: Sync the scheduler to the PRESENT
+        // We set nextNoteTime to the context's current clock PLUS a tiny buffer
         currentBeat = 0; 
-        nextNoteTime = audioCtx.currentTime; 
-        scheduler(); 
+        nextNoteTime = audioCtx.currentTime + 0.05; 
+        
         this.innerText = "Stop Playback"; 
+        scheduler(); 
     } else { 
         clearTimeout(timerID); 
         this.innerText = "Play Beat"; 
