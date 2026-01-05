@@ -74,13 +74,6 @@
 <script>
 const VF = Vex.Flow;
 let buffers = {};
-let audioCtx = null;
-let isPlaying = false;
-let nextNoteTime = 0.0;
-let timerID = null;
-let currentBeat = 0;
-let currentMid = [];
-let activeHH = null; // The hi-hat tracker
 
 // --- RHYTHM DATA ---
 const tCymPlain = ['down beats', 'shuffle', 'swing', '3:2 (down)', '3:2 (up)', '3:4 v1', '3:4 v2', '3:4 v3'];
@@ -345,49 +338,34 @@ async function loadKit(kitName) {
     console.log("--- Kit Swap Complete ---");
 }
     
-let activeHH = null; // Global tracker for the ringing hi-hat
-
-// MAKE SURE THIS IS AT THE TOP OF THE SCRIPT
-let activeHH = null; 
-
+// 2. Updated playDrum to use Samples first
 function playDrum(name, time, isAccent = false) {
     if (!audioCtx) return;
 
     let sampleID = name;
+
+    // Mapping logic for accents
     if (isAccent) {
         if (name === 'ride') sampleID = 'ride_bell';
         if (name === 'hihat') sampleID = 'hihat_open';
     }
 
+    // Try to play the sample
     if (buffers[sampleID]) {
         const source = audioCtx.createBufferSource();
-        const gainNode = audioCtx.createGain();
         source.buffer = buffers[sampleID];
-
-        // --- HI-HAT CHOKE ---
-        if (sampleID.includes('hihat')) {
-            if (activeHH) {
-                try {
-                    // Quick fade out old HH
-                    activeHH.gainNode.gain.exponentialRampToValueAtTime(0.001, time);
-                    activeHH.source.stop(time + 0.02);
-                } catch (e) {}
-            }
-            activeHH = { source: source, gainNode: gainNode };
-        }
-
-        source.connect(gainNode);
-        gainNode.connect(audioCtx.destination);
+        source.connect(audioCtx.destination);
         source.start(time);
     } else {
-        // Fallback pings
+        // Only the top voice gets a 'bing' so you know the rhythm is working
         if (name === 'ride' || name === 'hihat') {
             const osc = audioCtx.createOscillator();
-            const g = audioCtx.createGain();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
             osc.frequency.setValueAtTime(name === 'hihat' ? 8000 : 3000, time);
-            g.gain.setValueAtTime(0.1, time);
-            g.gain.exponentialRampToValueAtTime(0.01, time + 0.1);
-            osc.connect(g).connect(audioCtx.destination);
+            gain.gain.setValueAtTime(0.1, time);
+            gain.gain.exponentialRampToValueAtTime(0.01, time + 0.1);
+            osc.connect(gain).connect(audioCtx.destination);
             osc.start(time);
             osc.stop(time + 0.1);
         }
@@ -428,13 +406,23 @@ function scheduleSounds(time) {
 
 function scheduler() {
     const tempo = document.getElementById('tempo-slider').value;
-    const spb = 60.0 / tempo;
+    const pocket = document.getElementById('pocket-slider').value / 100;
     const isTri = document.getElementById("triplet-mode").checked;
+    
+    const spb = 60.0 / tempo;
     const sps = isTri ? (spb / 3) : (spb / 4);
 
-    // Look ahead 0.25s to stay ahead of the clock
-    while (nextNoteTime < audioCtx.currentTime + 0.25) {
-        scheduleSounds(nextNoteTime);
+    // Increasing the lookahead to 0.15 or 0.2 prevents audio "crackling" on slower devices
+    while (nextNoteTime < audioCtx.currentTime + 0.15) {
+        let subIdx = currentBeat % (isTri ? 3 : 4);
+        let actualPlayTime = nextNoteTime;
+        
+        // Apply pocket/swing only to even-numbered subdivisions in straight mode
+        if (!isTri && (subIdx === 1 || subIdx === 3)) {
+            actualPlayTime += (sps * pocket);
+        }
+        
+        scheduleSounds(actualPlayTime);
         nextNoteTime += sps;
         currentBeat = (currentBeat + 1) % 48;
     }
@@ -495,29 +483,29 @@ document.getElementById('kit-select').onchange = async (e) => {
     }
 };
 document.getElementById('metro-btn').onclick = async function() {
+    // 1. Initialize Audio
     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     
-    // 1. Force the context to wake up
+    // 2. Crucial: Always resume the context in case the browser paused it
     if (audioCtx.state === 'suspended') await audioCtx.resume();
 
     isPlaying = !isPlaying;
 
     if (isPlaying) { 
+        // 3. KEY FIX: Check if the currently loaded kit matches the dropdown selection
+        // If the user changed the kit while the beat was stopped, we catch it here.
         const selectedKit = document.getElementById('kit-select').value;
         
-        // 2. Only load if we actually have to
-        if (selectedKit !== 'synthetic' && Object.keys(buffers).length === 0) {
+        // We only trigger a load if it's not 'synthetic' and we need to refresh
+        if (selectedKit !== 'synthetic') {
             this.innerText = "Loading...";
             await loadKit(selectedKit);
         }
 
-        // 3. THE CRITICAL FIX: Sync the scheduler to the PRESENT
-        // We set nextNoteTime to the context's current clock PLUS a tiny buffer
         currentBeat = 0; 
-        nextNoteTime = audioCtx.currentTime + 0.05; 
-        
-        this.innerText = "Stop Playback"; 
+        nextNoteTime = audioCtx.currentTime; 
         scheduler(); 
+        this.innerText = "Stop Playback"; 
     } else { 
         clearTimeout(timerID); 
         this.innerText = "Play Beat"; 
