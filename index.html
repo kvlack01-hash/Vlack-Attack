@@ -279,7 +279,7 @@ function playDrum(name, time, isAcc = false) {
 
         // --- IMPROVED SMART CHOKE ---
         // Only trigger choke logic if the CURRENT hit is a cymbal
-        const isCymbal = id.includes('hihat') || id.includes('ride');
+        const isHiHat = id.includes('hihat');
         
         if (isCymbal) {
             if (activeHH) {
