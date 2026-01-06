@@ -216,6 +216,9 @@ function generate(forceRandom = false) {
     for (let b = 0; b < 4; b++) {
         for (let vIdx = 0; vIdx < 3; vIdx++) {
             let slice = [], pat = (vIdx === 0) ? (isTri?tCym:sCym)[cymName] : (vIdx === 2 ? (isTri?tFoot:sFoot)[footName] : currentMid[b]);
+            if (vIdx === 0 && document.getElementById('accent-mode').checked && !isTri) {
+                if (cymName === 'down beats' || cymName === 'up beats') pat = [1, 0, 1, 0];
+            }
             for (let i = 0; i < sub; i++) slice.push(pat[(b * sub + i) % pat.length]);
             
             let isFullBeat = slice.slice(1).every(v => v === 0);
@@ -322,8 +325,7 @@ function scheduleSounds(time) {
     if (currentMid[bIdx] && currentMid[bIdx][currentBeat % sub] === 1) {
         playDrum(bIdx % 2 === 0 ? 'kick' : 'snare', time);
     }
-    if (footPat && footPat[currentBeat % footPat.length] === 1) playDrum('hihat_foot', time, false);
-}
+    if (footPat && footPat[currentBeat % footPat.length] === 1) playDrum('hihat_foot', time, false);}
 
 function scheduler() {
     const tempo = document.getElementById('tempo-slider').value;
