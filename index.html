@@ -85,6 +85,7 @@ let nextNoteTime = 0.0;
 let timerID = null;
 let currentMid = [];
 let activeHH = null; // Reserved for Choke Logic
+let activeRide = null;
 
 // --- RHYTHM DATA ---
 const tCymPlain = ['down beats', 'shuffle', 'swing', '3:2 (down)', '3:2 (up)', '3:4 v1', '3:4 v2', '3:4 v3'];
@@ -280,38 +281,47 @@ function playDrum(name, time, isAcc = false) {
         const gainNode = audioCtx.createGain();
         source.buffer = buffers[id];
 
-        const isCymbal = id.includes('hihat') || id.includes('ride');
-        const isClosedCymbal = (id === 'hihat' || id === 'hihat_foot');
+        // 1. Identify what kind of sound this is
+        const isHiHat = id.includes('hihat');
+        const isRide = id.includes('ride');
+        const isClosed = (id === 'hihat' || id === 'hihat_foot');
 
-        // --- CYMBAL CHOKE LOGIC ---
-        if (isCymbal) {
-            // 1. If something is already ringing, we check if we need to kill it
+        // 2. SMART CHOKE LOGIC
+        // Only trigger a choke if the new sound is a Hi-Hat (Open, Closed, or Foot)
+        if (isHiHat) {
             if (activeHH) {
                 try {
-                    // We only "hard choke" (fast fade) if the NEW hit is a closed sound.
-                    // If the new hit is another open sound, we do a natural crossfade.
-                    const fadeTime = isClosedCymbal ? 0.02 : 0.1;
+                    // Only perform a "Hard Choke" if the NEW hit is closed/foot.
+                    // If hitting another Open Hat, we allow a longer overlap (0.15s).
+                    const fadeTime = isClosed ? 0.02 : 0.15;
                     
-                    const prevGain = activeHH.gainNode.gain;
-                    prevGain.cancelScheduledValues(time);
-                    prevGain.setValueAtTime(prevGain.value, time);
-                    prevGain.exponentialRampToValueAtTime(0.001, time + fadeTime);
-                    activeHH.source.stop(time + fadeTime + 0.01);
-                } catch (e) {
-                    // Source likely already finished
-                }
+                    activeHH.gainNode.gain.cancelScheduledValues(time);
+                    activeHH.gainNode.gain.setValueAtTime(activeHH.gainNode.gain.value, time);
+                    activeHH.gainNode.gain.exponentialRampToValueAtTime(0.001, time + fadeTime);
+                    activeHH.source.stop(time + fadeTime + 0.05);
+                } catch (e) {}
             }
-            // 2. ONLY update the tracker if the NEW sound is a cymbal
+            // Update tracker ONLY for hi-hats
             activeHH = { source: source, gainNode: gainNode };
         }
-        // -------------------------
+
+        // 3. RIDE INDEPENDENCE
+        // We track the ride separately so the Hi-Hat foot doesn't choke the Ride Bell
+        if (isRide) {
+            if (activeRide) {
+                try {
+                    activeRide.gainNode.gain.exponentialRampToValueAtTime(0.001, time + 0.1);
+                    activeRide.source.stop(time + 0.15);
+                } catch (e) {}
+            }
+            activeRide = { source: source, gainNode: gainNode };
+        }
 
         source.connect(gainNode);
         gainNode.connect(audioCtx.destination);
         source.start(time);
-        
     } else {
-        // Fallback pings for hihat/ride only
+        // Fallback pings
         if (name === 'ride' || name === 'hihat') {
             const osc = audioCtx.createOscillator();
             const g = audioCtx.createGain();
