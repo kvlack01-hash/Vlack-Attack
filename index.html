@@ -269,53 +269,63 @@ async function loadKit(kitName) {
 function playDrum(name, time, isAcc = false) {
     if (!audioCtx) return;
     
+    // 1. Identify the sample
     let id = name;
     if (name === 'hi-hat') id = 'hihat';
-    
     if (isAcc) { 
         if (id === 'ride') id = 'ride_bell'; 
         if (id === 'hihat') id = 'hihat_open'; 
     }
     
-    // CRITICAL: If the buffer doesn't exist or we shouldn't be playing, exit immediately.
-    if (!buffers[id]) {
-        // Only do fallback if it's a cymbal intended to make sound
-        if (name === 'ride' || name === 'hihat') {
-            playFallbackPing(id, time);
+    // 2. Buffer Check
+    if (buffers[id]) {
+        const source = audioCtx.createBufferSource();
+        const gainNode = audioCtx.createGain();
+        source.buffer = buffers[id];
+
+        // Define lanes for choking
+        let lane = null;
+        if (id.includes('hihat')) lane = 'hihat';
+        if (id.includes('ride')) lane = 'ride';
+
+        // 3. The Choke (Safety Wrapped)
+        if (lane && activeVoices && activeVoices[lane]) {
+            try {
+                const isClosed = (id === 'hihat' || id === 'hihat_foot');
+                const fadeTime = isClosed ? 0.02 : 0.25; // Nice long ring for cymbals
+                
+                const prev = activeVoices[lane];
+                // Safety check to ensure prev has the nodes we expect
+                if (prev.gainNode && prev.source) {
+                    prev.gainNode.gain.cancelScheduledValues(time);
+                    prev.gainNode.gain.setValueAtTime(prev.gainNode.gain.value, time);
+                    prev.gainNode.gain.linearRampToValueAtTime(0, time + fadeTime);
+                    prev.source.stop(time + fadeTime + 0.1);
+                }
+            } catch (e) {
+                console.warn("Choke failed:", e);
+            }
         }
-        return; 
+
+        // 4. Update the tracker
+        if (lane) activeVoices[lane] = { source: source, gainNode: gainNode };
+
+        // 5. Connect and Play
+        source.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        source.start(time);
+    } else {
+        // Fallback: If no sample, play a simple synthesized "ping"
+        // This ensures you hear SOMETHING even if samples fail
+        const osc = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        osc.frequency.setValueAtTime(id.includes('hihat') ? 8000 : 3000, time);
+        g.gain.setValueAtTime(0.05, time);
+        g.gain.exponentialRampToValueAtTime(0.01, time + 0.1);
+        osc.connect(g).connect(audioCtx.destination);
+        osc.start(time); 
+        osc.stop(time + 0.1);
     }
-
-    const source = audioCtx.createBufferSource();
-    const gainNode = audioCtx.createGain();
-    source.buffer = buffers[id];
-
-    let lane = null;
-    if (id.includes('hihat')) lane = 'hihat';
-    if (id.includes('ride')) lane = 'ride';
-
-    // THE FIX: The choke only triggers inside the buffer block,
-    // meaning a "Rest" (which never calls playDrum with a valid buffer) 
-    // will never choke the ringing tail.
-    if (lane && activeVoices[lane]) {
-        try {
-            const isClosed = (id === 'hihat' || id === 'hihat_foot');
-            const fadeTime = isClosed ? 0.02 : 0.2; // Increased overlap for open hits
-            
-            const prev = activeVoices[lane];
-            prev.gainNode.gain.cancelScheduledValues(time);
-            prev.gainNode.gain.setValueAtTime(prev.gainNode.gain.value, time);
-            // Use linear ramp to 0 for a more natural cymbal tail cutoff
-            prev.gainNode.gain.linearRampToValueAtTime(0, time + fadeTime);
-            prev.source.stop(time + fadeTime + 0.1);
-        } catch (e) {}
-    }
-
-    if (lane) activeVoices[lane] = { source, gainNode };
-
-    source.connect(gainNode);
-    gainNode.connect(audioCtx.destination);
-    source.start(time);
 }
 
 // Helper for cleaner code
@@ -394,11 +404,9 @@ document.getElementById('metro-btn').onclick = async function() {
         scheduler();
     } else { 
         clearTimeout(timerID); 
-        // Stop any ringing sounds immediately
-        if (activeVoices.hihat && activeVoices.hihat.source) activeVoices.hihat.source.stop();
-        if (activeVoices.ride && activeVoices.ride.source) activeVoices.ride.source.stop();
-        
-        // Reset the tracker
+        // Use optional chaining (?.) to prevent crashes if voices are null
+        activeVoices?.hihat?.source?.stop();
+        activeVoices?.ride?.source?.stop();
         activeVoices = { hihat: null, ride: null }; 
         this.innerText = "Play Beat"; 
     }
