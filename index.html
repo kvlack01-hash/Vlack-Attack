@@ -84,8 +84,7 @@ let currentBeat = 0;
 let nextNoteTime = 0.0;
 let timerID = null;
 let currentMid = [];
-let activeHH = null; // Reserved for Choke Logic
-let activeRide = null;
+let activeVoices = { hihat: null, ride: null };
 
 // --- RHYTHM DATA ---
 const tCymPlain = ['down beats', 'shuffle', 'swing', '3:2 (down)', '3:2 (up)', '3:4 v1', '3:4 v2', '3:4 v3'];
@@ -270,10 +269,13 @@ async function loadKit(kitName) {
 function playDrum(name, time, isAcc = false) {
     if (!audioCtx) return;
     
+    // 1. FIXED SAMPLE SELECTION
     let id = name;
+    if (name === 'hi-hat') id = 'hihat'; // Normalize name
+    
     if (isAcc) { 
-        if(name === 'ride') id = 'ride_bell'; 
-        if(name === 'hihat') id = 'hihat_open'; 
+        if (id === 'ride') id = 'ride_bell'; 
+        if (id === 'hihat') id = 'hihat_open'; 
     }
     
     if (buffers[id]) {
@@ -281,51 +283,37 @@ function playDrum(name, time, isAcc = false) {
         const gainNode = audioCtx.createGain();
         source.buffer = buffers[id];
 
-        // 1. Identify what kind of sound this is
-        const isHiHat = id.includes('hihat');
-        const isRide = id.includes('ride');
-        const isClosed = (id === 'hihat' || id === 'hihat_foot');
+        // 2. DEFINE THE LANE (hihat or ride)
+        let lane = null;
+        if (id.includes('hihat')) lane = 'hihat';
+        if (id.includes('ride')) lane = 'ride';
 
-        // 2. SMART CHOKE LOGIC
-        // Only trigger a choke if the new sound is a Hi-Hat (Open, Closed, or Foot)
-        if (isHiHat) {
-            if (activeHH) {
-                try {
-                    // Only perform a "Hard Choke" if the NEW hit is closed/foot.
-                    // If hitting another Open Hat, we allow a longer overlap (0.15s).
-                    const fadeTime = isClosed ? 0.02 : 0.15;
-                    
-                    activeHH.gainNode.gain.cancelScheduledValues(time);
-                    activeHH.gainNode.gain.setValueAtTime(activeHH.gainNode.gain.value, time);
-                    activeHH.gainNode.gain.exponentialRampToValueAtTime(0.001, time + fadeTime);
-                    activeHH.source.stop(time + fadeTime + 0.05);
-                } catch (e) {}
-            }
-            // Update tracker ONLY for hi-hats
-            activeHH = { source: source, gainNode: gainNode };
+        // 3. STRICT CHOKE (Only happens if we are in a cymbal lane)
+        if (lane && activeVoices[lane]) {
+            try {
+                const isClosed = (id === 'hihat' || id === 'hihat_foot');
+                const fadeTime = isClosed ? 0.02 : 0.15;
+                
+                const prev = activeVoices[lane];
+                prev.gainNode.gain.cancelScheduledValues(time);
+                prev.gainNode.gain.setValueAtTime(prev.gainNode.gain.value, time);
+                prev.gainNode.gain.exponentialRampToValueAtTime(0.001, time + fadeTime);
+                prev.source.stop(time + fadeTime + 0.05);
+            } catch (e) {}
         }
 
-        // 3. RIDE INDEPENDENCE
-        // We track the ride separately so the Hi-Hat foot doesn't choke the Ride Bell
-        if (isRide) {
-            if (activeRide) {
-                try {
-                    activeRide.gainNode.gain.exponentialRampToValueAtTime(0.001, time + 0.1);
-                    activeRide.source.stop(time + 0.15);
-                } catch (e) {}
-            }
-            activeRide = { source: source, gainNode: gainNode };
-        }
+        // Update the tracker for this lane only
+        if (lane) activeVoices[lane] = { source, gainNode };
 
         source.connect(gainNode);
         gainNode.connect(audioCtx.destination);
         source.start(time);
     } else {
         // Fallback pings
-        if (name === 'ride' || name === 'hihat') {
+        if (name === 'ride' || name === 'hihat' || name === 'hi-hat') {
             const osc = audioCtx.createOscillator();
             const g = audioCtx.createGain();
-            osc.frequency.setValueAtTime(name === 'hihat' ? 8000 : 3000, time);
+            osc.frequency.setValueAtTime(id.includes('hihat') ? 8000 : 3000, time);
             g.gain.setValueAtTime(0.05, time);
             g.gain.exponentialRampToValueAtTime(0.01, time + 0.1);
             osc.connect(g).connect(audioCtx.destination);
@@ -339,36 +327,27 @@ function scheduleSounds(time) {
     const sub = isTri ? 3 : 4;
     const cymName = document.getElementById("cymbal-select").value;
     const footName = document.getElementById("foot-select").value;
-    const el = document.getElementById('element-select').value;
+    const el = document.getElementById('element-select').value; // 'ride' or 'hi-hat'
     
     const cymPat = (isTri ? tCym : sCym)[cymName];
     const footPat = (isTri ? tFoot : sFoot)[footName];
 
+    // Cymbal Logic - Pass the actual element name ('ride' or 'hi-hat')
     if (cymPat && cymPat[currentBeat % cymPat.length] === 1) {
-        playDrum(el==='hi-hat'?'hihat':el, time, getAccentLogic(cymName, currentBeat, true));
+        const drumName = (el === 'ride') ? 'ride' : 'hihat';
+        playDrum(drumName, time, getAccentLogic(cymName, currentBeat, true));
     }
+
+    // Kick/Snare Logic
     const bIdx = Math.floor(currentBeat / sub) % 4;
     if (currentMid[bIdx] && currentMid[bIdx][currentBeat % sub] === 1) {
         playDrum(bIdx % 2 === 0 ? 'kick' : 'snare', time);
     }
-    if (footPat && footPat[currentBeat % footPat.length] === 1) playDrum('hihat_foot', time, false);}
 
-function scheduler() {
-    const tempo = document.getElementById('tempo-slider').value;
-    const pocket = document.getElementById('pocket-slider').value / 100;
-    const isTri = document.getElementById("triplet-mode").checked;
-    const sps = (60.0 / tempo) / (isTri ? 3 : 4);
-
-    while (nextNoteTime < audioCtx.currentTime + 0.15) {
-        let subIdx = currentBeat % (isTri ? 3 : 4);
-        let playTime = nextNoteTime;
-        if (!isTri && (subIdx === 1 || subIdx === 3)) playTime += (sps * pocket);
-        
-        scheduleSounds(playTime);
-        nextNoteTime += sps;
-        currentBeat = (currentBeat + 1) % 48;
+    // Left Foot Logic
+    if (footPat && footPat[currentBeat % footPat.length] === 1) {
+        playDrum('hihat_foot', time, false);
     }
-    timerID = setTimeout(scheduler, 25);
 }
 
 // --- EVENT HANDLERS ---
@@ -408,8 +387,12 @@ document.getElementById('metro-btn').onclick = async function() {
         scheduler();
     } else { 
         clearTimeout(timerID); 
-        if (activeHH && activeHH.source) activeHH.source.stop(); // Stop any lingering ring
-        activeHH = null; 
+        // Stop any ringing sounds immediately
+        if (activeVoices.hihat && activeVoices.hihat.source) activeVoices.hihat.source.stop();
+        if (activeVoices.ride && activeVoices.ride.source) activeVoices.ride.source.stop();
+        
+        // Reset the tracker
+        activeVoices = { hihat: null, ride: null }; 
         this.innerText = "Play Beat"; 
     }
 };
