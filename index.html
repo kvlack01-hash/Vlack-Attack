@@ -17,8 +17,10 @@
     </style>
 </head>
 <body>
+    <h1 id="app-title" style="color: #2c3e50; margin-bottom: 0;">Vlack Attack v1.9.3</h1>
+    <p style="color: #7f8c8d; margin-top: 5px;">Rhythm Engine & Notation</p>
 
-<div id="output"></div>
+    <div id="output"></div>
 
 <div class="controls">
     <div class="control-group">
@@ -266,53 +268,57 @@ async function loadKit(kitName) {
 
 function playDrum(name, time, isAcc = false) {
     if (!audioCtx) return;
+    
+    // 1. Determine the exact Sample ID
     let id = name;
     if (isAcc) { 
         if(name === 'ride') id = 'ride_bell'; 
         if(name === 'hihat') id = 'hihat_open'; 
     }
-    
+
     if (buffers[id]) {
         const source = audioCtx.createBufferSource();
         const gainNode = audioCtx.createGain();
         source.buffer = buffers[id];
 
+        // 2. THE FIX: Define exactly what triggers a choke
+        // We only choke if the CURRENT sound is a "Short" hi-hat hit 
+        // or a foot chick, and we only choke PREVIOUS hi-hats/rides.
+        const isShortHit = (id === 'hihat' || id === 'hihat_foot');
         const isCymbal = id.includes('hihat') || id.includes('ride');
-        
-        // --- THE GATE: Only cymbals can choke previous cymbals ---
+
         if (isCymbal) {
             if (activeHH) {
                 try {
-                    // Check if we are choking (closed hit) or crossfading (open hit)
-                    const isOpeningHit = id.includes('open') || id.includes('bell');
-                    
-                    // If the new hit is CLOSED, choke fast (0.02s)
-                    // If the new hit is OPEN, crossfade slower (0.08s)
-                    const fadeTime = isOpeningHit ? 0.08 : 0.02; 
-                    
+                    // If we are playing a closed hat, choke the open one immediately (0.02s)
+                    // If we are playing another open hat, just do a tiny crossfade (0.05s)
+                    const fadeTime = isShortHit ? 0.02 : 0.05;
+
+                    // Use 'cancelScheduledValues' to ensure we have fresh control of the gain
+                    activeHH.gainNode.gain.cancelScheduledValues(time);
                     activeHH.gainNode.gain.setValueAtTime(activeHH.gainNode.gain.value, time);
                     activeHH.gainNode.gain.linearRampToValueAtTime(0, time + fadeTime);
                     activeHH.source.stop(time + fadeTime + 0.01);
                 } catch (e) {}
             }
-            // Only update activeHH tracker if it's a cymbal!
-            // This prevents Kicks/Snares from overwriting the tracker.
+            // Update tracker only for cymbals
             activeHH = { source: source, gainNode: gainNode };
         }
-        // -------------------------------------------------------
 
         source.connect(gainNode);
         gainNode.connect(audioCtx.destination);
         source.start(time);
-    } else if (name === 'ride' || name === 'hihat') {
-        // Fallback pings
-        const osc = audioCtx.createOscillator();
-        const g = audioCtx.createGain();
-        osc.frequency.setValueAtTime(name === 'hihat' ? 8000 : 3000, time);
-        g.gain.setValueAtTime(0.1, time);
-        g.gain.exponentialRampToValueAtTime(0.01, time + 0.1);
-        osc.connect(g).connect(audioCtx.destination);
-        osc.start(time); osc.stop(time + 0.1);
+    } else {
+        // Fallback pings...
+        if (name === 'ride' || name === 'hihat') {
+            const osc = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            osc.frequency.setValueAtTime(name === 'hihat' ? 8000 : 3000, time);
+            g.gain.setValueAtTime(0.05, time);
+            g.gain.exponentialRampToValueAtTime(0.01, time + 0.1);
+            osc.connect(g).connect(audioCtx.destination);
+            osc.start(time); osc.stop(time + 0.1);
+        }
     }
 }
 
