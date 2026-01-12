@@ -14,6 +14,7 @@
         #gen-btn { background: #27ae60; color: white; border: none; padding: 12px 25px; }
         .label-text { font-size: 0.8rem; font-weight: bold; color: #777; text-transform: uppercase; }
         .vf-flag { display: none !important; }
+        select:disabled { opacity: 0.5; cursor: not-allowed; background: #f5f5f5; }
     </style>
 </head>
 <body>
@@ -82,7 +83,7 @@ let currentBeat = 0;
 let nextNoteTime = 0.0;
 let timerID = null;
 let currentMid = [];
-let activeHH = null; // Reserved for Choke Logic
+let activeHH = null; // Reserved for Hi-Hat Choke Logic
 
 // --- RHYTHM DATA ---
 const tCymPlain = ['down beats', 'shuffle', 'swing', '3:2 (down)', '3:2 (up)', '3:4 v1', '3:4 v2', '3:4 v3'];
@@ -104,6 +105,23 @@ const sCym = {
 const sFoot = { 'down beats': [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0], '2 and 4': [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0], 'eighth notes': [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0] };
 const tMidPool = [[1,0,0], [0,1,0], [1,0,1], [0,0,1], [1,1,0], [0,1,1]];
 const sMidPool = [[1,0,0,0], [0,1,0,0], [0,0,1,0], [0,0,0,1], [1,0,1,0], [0,1,0,1], [1,1,0,0], [0,1,1,0], [0,0,1,1], [1,0,0,1], [1,1,1,0], [0,1,1,1], [1,0,1,1], [1,1,0,1]];
+
+// Generate foot pattern based on hi-hat accent pattern
+// Foot hits where the regular (closed) hi-hat occurs (non-accented hits)
+function getFootPatternForHiHatAccents(cymbalPattern) {
+    const pattern = sCym[cymbalPattern];
+    if (!pattern) return null;
+    
+    // Build a 16-beat foot pattern (4 beats x 4 subdivisions)
+    const footPattern = [];
+    for (let i = 0; i < 16; i++) {
+        const cymbalHit = pattern[i % pattern.length] === 1;
+        const isAccent = getAccentLogic(cymbalPattern, i, cymbalHit);
+        // Foot clamps down on regular (non-accented) hi-hat hits
+        footPattern.push((cymbalHit && !isAccent) ? 1 : 0);
+    }
+    return footPattern;
+}
 
 // --- UI & NOTATION ---
 function getAccentLogic(patternName, index, isHit) {
@@ -137,6 +155,21 @@ function getAccentLogic(patternName, index, isHit) {
     }
 }
 
+function updateFootPatternForHiHatAccents() {
+    const isAccent = document.getElementById("accent-mode").checked;
+    const element = document.getElementById('element-select').value;
+    const fSel = document.getElementById("foot-select");
+    const isTri = document.getElementById("triplet-mode").checked;
+    
+    // If accent mode is on AND hi-hat is selected AND in straight time (not triplets), 
+    // the foot pattern is determined by the hi-hat pattern
+    if (isAccent && element === 'hi-hat' && !isTri) {
+        fSel.disabled = true;
+    } else {
+        fSel.disabled = false;
+    }
+}
+
 function updateMenus() {
     const isTri = document.getElementById("triplet-mode").checked;
     const isAcc = document.getElementById("accent-mode").checked;
@@ -158,6 +191,9 @@ function updateMenus() {
         let o = document.createElement("option"); o.value = k; o.text = k; fSel.add(o); 
     });
     fSel.value = Array.from(fSel.options).some(opt => opt.value === previousFoot) ? previousFoot : fSel.options[0].value;
+    
+    // Update foot pattern based on hi-hat accents
+    updateFootPatternForHiHatAccents();
 }
 
 function createNote(vIdx, dur, isHit, bIdx, isAcc = false) {
@@ -211,11 +247,38 @@ function generate(forceRandom = false) {
     }
 
     const vData = [[], [], []], beams = [];
-    const cymName = document.getElementById("cymbal-select").value, footName = document.getElementById("foot-select").value;
+    const cymName = document.getElementById("cymbal-select").value;
+    const footName = document.getElementById("foot-select").value;
+    const isAccent = document.getElementById("accent-mode").checked;
+    const element = document.getElementById('element-select').value;
+    
+    // Generate dynamic foot pattern for hi-hat accent mode
+    let customFootPattern = null;
+    if (isAccent && element === 'hi-hat' && !isTri) {
+        customFootPattern = getFootPatternForHiHatAccents(cymName);
+    }
 
     for (let b = 0; b < 4; b++) {
         for (let vIdx = 0; vIdx < 3; vIdx++) {
-            let slice = [], pat = (vIdx === 0) ? (isTri?tCym:sCym)[cymName] : (vIdx === 2 ? (isTri?tFoot:sFoot)[footName] : currentMid[b]);
+            let slice = [], pat;
+            
+            if (vIdx === 0) {
+                // Top voice - cymbal pattern
+                pat = (isTri ? tCym : sCym)[cymName];
+            } else if (vIdx === 2) {
+                // Bottom voice - foot pattern
+                if (customFootPattern) {
+                    // Use custom foot pattern for hi-hat accent mode
+                    pat = customFootPattern;
+                } else {
+                    // Use selected foot pattern
+                    pat = (isTri ? tFoot : sFoot)[footName];
+                }
+            } else {
+                // Middle voice - kick/snare
+                pat = currentMid[b];
+            }
+            
             if (vIdx === 0 && document.getElementById('accent-mode').checked && !isTri) {
                 if (cymName === 'down beats' || cymName === 'up beats') pat = [1, 0, 1, 0];
             }
@@ -277,34 +340,37 @@ function playDrum(name, time, isAcc = false) {
         const gainNode = audioCtx.createGain();
         source.buffer = buffers[id];
 
-        // --- IMPROVED SMART CHOKE ---
-        // Only trigger choke logic if the CURRENT hit is a cymbal
+        // --- FIXED HI-HAT CHOKE LOGIC ---
+        // Only apply choke logic for hi-hat sounds
         const isHiHat = id.includes('hihat');
         
-        if (isCymbal) {
+        if (isHiHat) {
+            // If there's a previous hi-hat ringing, choke it
             if (activeHH) {
                 try {
-                    // Determine if we are choking (closed hit) or crossfading (open hit)
-                    const isOpeningHit = id.includes('open') || id.includes('bell');
+                    // Determine fade time based on whether we're opening or closing
+                    const isOpeningHit = id === 'hihat_open';
                     const fadeTime = isOpeningHit ? 0.08 : 0.03; 
                     
-                    // Use linearRamp for a more predictable "clamp" sound
-                    // We start the fade slightly before the new hit to avoid the "pop"
+                    // Use linearRamp for a clean choke/clamp sound
                     activeHH.gainNode.gain.setValueAtTime(activeHH.gainNode.gain.value, time);
                     activeHH.gainNode.gain.linearRampToValueAtTime(0, time + fadeTime);
                     activeHH.source.stop(time + fadeTime + 0.01);
-                } catch (e) {}
+                } catch (e) {
+                    console.error("Choke error:", e);
+                }
             }
-            // Update the tracker only for cymbals
+            // Track this hi-hat for future choking
             activeHH = { source: source, gainNode: gainNode };
         }
+        // Ride cymbals are NOT tracked and will never be choked
         // ----------------------------
 
         source.connect(gainNode);
         gainNode.connect(audioCtx.destination);
         source.start(time);
     } else {
-        // ... (fallback oscillator logic)
+        console.warn(`Buffer not found: ${id}`);
     }
 }
 
@@ -314,9 +380,17 @@ function scheduleSounds(time) {
     const cymName = document.getElementById("cymbal-select").value;
     const footName = document.getElementById("foot-select").value;
     const el = document.getElementById('element-select').value;
+    const isAccent = document.getElementById("accent-mode").checked;
     
     const cymPat = (isTri ? tCym : sCym)[cymName];
-    const footPat = (isTri ? tFoot : sFoot)[footName];
+    
+    // Determine foot pattern - use custom for hi-hat accent mode
+    let footPat;
+    if (isAccent && el === 'hi-hat' && !isTri) {
+        footPat = getFootPatternForHiHatAccents(cymName);
+    } else {
+        footPat = (isTri ? tFoot : sFoot)[footName];
+    }
 
     if (cymPat && cymPat[currentBeat % cymPat.length] === 1) {
         playDrum(el==='hi-hat'?'hihat':el, time, getAccentLogic(cymName, currentBeat, true));
@@ -325,7 +399,8 @@ function scheduleSounds(time) {
     if (currentMid[bIdx] && currentMid[bIdx][currentBeat % sub] === 1) {
         playDrum(bIdx % 2 === 0 ? 'kick' : 'snare', time);
     }
-    if (footPat && footPat[currentBeat % footPat.length] === 1) playDrum('hihat_foot', time, false);}
+    if (footPat && footPat[currentBeat % footPat.length] === 1) playDrum('hihat_foot', time, false);
+}
 
 function scheduler() {
     const tempo = document.getElementById('tempo-slider').value;
@@ -355,6 +430,9 @@ window.onload = () => {
                 updateMenus();
                 document.getElementById("pocket-slider").disabled = document.getElementById("triplet-mode").checked;
             }
+            if (el.id === "element-select" || el.id === "cymbal-select" || el.id === "accent-mode") {
+                updateFootPatternForHiHatAccents();
+            }
             if (el.type !== 'range') generate();
         };
     });
@@ -382,7 +460,9 @@ document.getElementById('metro-btn').onclick = async function() {
         scheduler();
     } else { 
         clearTimeout(timerID); 
-        if (activeHH && activeHH.source) activeHH.source.stop(); // Stop any lingering ring
+        if (activeHH && activeHH.source) {
+            try { activeHH.source.stop(); } catch(e) {}
+        }
         activeHH = null; 
         this.innerText = "Play Beat"; 
     }
