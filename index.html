@@ -7,7 +7,7 @@
     <style>
         body { font-family: 'Segoe UI', sans-serif; text-align: center; background: #f0f2f5; padding: 20px; }
         .container { background: white; max-width: 1300px; margin: 0 auto; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
-        #output { background: white; margin: 20px 0; min-height: 520px; border: 1px solid #e1e4e8; border-radius: 12px; display: flex; justify-content: center; align-items: center; overflow-x: auto; }
+        #output { background: white; margin: 20px 0; min-height: 520px; border: 1px solid #e1e4e8; border-radius: 12px; display: flex; justify-content; align-items: center; overflow-x: auto; }
         .controls { display: flex; justify-content: center; align-items: center; padding: 20px; background: #f8f9fa; border-radius: 12px; border: 1px solid #eee; flex-wrap: wrap; gap: 15px; }
         .control-group { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; }
         button, select { padding: 10px 12px; cursor: pointer; border-radius: 8px; border: 1px solid #ced4da; background: white; font-weight: bold; }
@@ -107,20 +107,34 @@ const tMidPool = [[1,0,0], [0,1,0], [1,0,1], [0,0,1], [1,1,0], [0,1,1]];
 const sMidPool = [[1,0,0,0], [0,1,0,0], [0,0,1,0], [0,0,0,1], [1,0,1,0], [0,1,0,1], [1,1,0,0], [0,1,1,0], [0,0,1,1], [1,0,0,1], [1,1,1,0], [0,1,1,1], [1,0,1,1], [1,1,0,1]];
 
 // Generate foot pattern based on hi-hat accent pattern
-// Foot hits where the regular (closed) hi-hat occurs (non-accented hits)
-function getFootPatternForHiHatAccents(cymbalPattern) {
-    const pattern = sCym[cymbalPattern];
-    if (!pattern) return null;
-    
-    // Build a 16-beat foot pattern (4 beats x 4 subdivisions)
-    const footPattern = [];
-    for (let i = 0; i < 16; i++) {
-        const cymbalHit = pattern[i % pattern.length] === 1;
-        const isAccent = getAccentLogic(cymbalPattern, i, cymbalHit);
-        // Foot clamps down on regular (non-accented) hi-hat hits
-        footPattern.push((cymbalHit && !isAccent) ? 1 : 0);
+// Foot clamps down after each open hi-hat
+function getFootPatternForHiHatAccents(cymbalPattern, isTriplet = false) {
+    if (isTriplet) {
+        // Triplet mode foot patterns
+        const tripletFootPatterns = {
+            'shuffle': [0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0],
+            'swing': [0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0],
+            '3:2 (down)': [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0],
+            '3:2 (up)': [0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1],
+            '3:2 (down) shuffle': [0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0],
+            '3:2 (up) shuffle': [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1],
+            '3:4 v1': [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0],
+            '3:4 v2': [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0],
+            '3:4 v3': [0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0]
+        };
+        return tripletFootPatterns[cymbalPattern] || null;
+    } else {
+        // Standard mode foot patterns (16th note subdivision)
+        const standardFootPatterns = {
+            'down beats': [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0],
+            'up beats': [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0],
+            '1 e &': [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0],
+            'e & a': [0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0],
+            '1 & a': [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0],
+            '1 e a': [0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1]
+        };
+        return standardFootPatterns[cymbalPattern] || null;
     }
-    return footPattern;
 }
 
 // --- UI & NOTATION ---
@@ -161,9 +175,9 @@ function updateFootPatternForHiHatAccents() {
     const fSel = document.getElementById("foot-select");
     const isTri = document.getElementById("triplet-mode").checked;
     
-    // If accent mode is on AND hi-hat is selected AND in straight time (not triplets), 
-    // the foot pattern is determined by the hi-hat pattern
-    if (isAccent && element === 'hi-hat' && !isTri) {
+    // If accent mode is on AND hi-hat is selected, 
+    // the foot pattern is determined by the hi-hat pattern (for both standard and triplet)
+    if (isAccent && element === 'hi-hat') {
         fSel.disabled = true;
     } else {
         fSel.disabled = false;
@@ -203,26 +217,44 @@ function createNote(vIdx, dur, isHit, bIdx, isAcc = false) {
     let actualRest = !isHit || dur.includes('r');
 
     if (vIdx === 0) {
-        stem = 1; restKey = "G/5/r";
-        if (isHit) key = (element === 'hi-hat') ? "G/5/x2" : (isAcc ? "G/5/d2" : "G/5/x2");
+        stem = 1; 
+        restKey = "G/5/r";
+        key = "G/5/x2";
+        if (isHit && !actualRest) {
+            key = (element === 'hi-hat') ? "G/5/x2" : (isAcc ? "G/5/d2" : "G/5/x2");
+        }
     } else if (vIdx === 1) {
-        key = (bIdx % 2 === 0) ? "F/4" : "C/5"; stem = -1; restKey = "C/4/r";
+        key = (bIdx % 2 === 0) ? "F/4" : "C/5"; 
+        stem = -1; 
+        restKey = (bIdx % 2 === 0) ? "F/4/r" : "C/5/r";
     } else {
-        key = isHit ? "B/4/x2" : "B/4/r"; stem = -1; restKey = "B/4/r";
+        key = "B/4/x2"; 
+        stem = -1; 
+        restKey = "B/4/r";
     }
 
     const note = new VF.StaveNote({ 
-        keys: [isHit ? (key || "G/5/x2") : restKey], duration: cleanDur + (actualRest ? "r" : ""), stem_direction: stem 
+        keys: [actualRest ? restKey : key], 
+        duration: cleanDur + (actualRest ? "r" : ""), 
+        stem_direction: stem 
     });
 
-    if (isHit && vIdx === 0 && isAcc && element === 'hi-hat') note.addModifier(new VF.Articulation('ah').setPosition(3), 0);
+    if (isHit && vIdx === 0 && isAcc && element === 'hi-hat' && !actualRest) {
+        note.addModifier(new VF.Articulation('ah').setPosition(3), 0);
+    }
     if (cleanDur.includes('d')) VF.Dot.buildAndAttach([note], { all: true });
     
-    if (vIdx === 2) note.setKeyLine(0, 2); 
-    else if (actualRest) { 
-        if (vIdx === 1) note.setKeyLine(0, 1); 
-        if (vIdx === 0) note.setKeyLine(0, 5); 
+    // Set consistent key lines for all voices
+    if (vIdx === 2) {
+        note.setKeyLine(0, 2); // Bottom voice always on line 2
+    } else if (vIdx === 1) {
+        // Middle voice - keep notes at their natural positions (F/4 or C/5)
+        // Don't adjust key lines for middle voice
+    } else if (vIdx === 0) {
+        // Top voice - keep at G/5 position
+        // Don't adjust key lines for top voice
     }
+    
     return note;
 }
 
@@ -254,8 +286,8 @@ function generate(forceRandom = false) {
     
     // Generate dynamic foot pattern for hi-hat accent mode
     let customFootPattern = null;
-    if (isAccent && element === 'hi-hat' && !isTri) {
-        customFootPattern = getFootPatternForHiHatAccents(cymName);
+    if (isAccent && element === 'hi-hat') {
+        customFootPattern = getFootPatternForHiHatAccents(cymName, isTri);
     }
 
     for (let b = 0; b < 4; b++) {
@@ -386,8 +418,8 @@ function scheduleSounds(time) {
     
     // Determine foot pattern - use custom for hi-hat accent mode
     let footPat;
-    if (isAccent && el === 'hi-hat' && !isTri) {
-        footPat = getFootPatternForHiHatAccents(cymName);
+    if (isAccent && el === 'hi-hat') {
+        footPat = getFootPatternForHiHatAccents(cymName, isTri);
     } else {
         footPat = (isTri ? tFoot : sFoot)[footName];
     }
