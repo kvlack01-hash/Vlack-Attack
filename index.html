@@ -372,6 +372,15 @@ function playDrum(name, time, isAcc = false) {
         const gainNode = audioCtx.createGain();
         source.buffer = buffers[id];
 
+        // --- VOLUME BALANCING ---
+        // Set different gain levels for better mix balance
+        let gainValue = 1.0; // Default for kick/snare
+        if (id.includes('hihat') || id.includes('ride')) {
+            gainValue = 0.4; // Cymbals quieter (top voice and foot)
+        }
+        gainNode.gain.value = gainValue;
+        // ----------------------------
+
         // --- FIXED HI-HAT CHOKE LOGIC ---
         // Only apply choke logic for hi-hat sounds
         const isHiHat = id.includes('hihat');
