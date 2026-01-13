@@ -80,7 +80,6 @@
             <option value="">-- Select a beat --</option>
         </select>
     </div>
-    <button id="load-btn" style="background: #16a085; color: white;">Load</button>
     <button id="rename-btn" style="background: #8e44ad; color: white;">Rename</button>
     <button id="delete-btn" style="background: #c0392b; color: white;">Delete</button>
 </div>
@@ -160,7 +159,7 @@ function getAccentLogic(patternName, index, isHit) {
             case 'shuffle': return pos3 === 0;
             case 'swing': return pos6 === 0;
             case '3:2 (down)': return (pos12 === 0 || pos12 === 4 || pos12 === 8);
-            case '3:2 (up)': return (pos12 === 1 || pos12 === 5 || pos12 === 9);
+            case '3:2 (up)': return (pos12 === 2 || pos12 === 6 || pos12 === 10);
             case '3:2 (down) shuffle': return (pos6 === 0 || pos6 === 4);
             case '3:2 (up) shuffle': return (pos6 === 1 || pos6 === 3);
             case '3:4 v1': return (pos12 === 2 || pos12 === 6 || pos12 === 10);
@@ -542,7 +541,7 @@ window.onload = () => {
     updateMenus();
     updateSavedBeatsList();
     document.querySelectorAll("select, input").forEach(el => {
-        if (el.id === "kit-select") return;
+        if (el.id === "kit-select" || el.id === "saved-beats-select") return;
         el.onchange = () => {
             if (el.id === "triplet-mode" || el.id === "accent-mode") {
                 updateMenus();
@@ -556,6 +555,15 @@ window.onload = () => {
     });
     document.getElementById("gen-btn").onclick = () => generate(true);
     
+    // Auto-load beat when selected from dropdown
+    document.getElementById("saved-beats-select").onchange = (e) => {
+        if (!e.target.value) return;
+        const beats = getSavedBeats();
+        if (beats[e.target.value]) {
+            loadBeatData(beats[e.target.value]);
+        }
+    };
+    
     // Save/Load beat handlers
     document.getElementById("save-btn").onclick = () => {
         const beats = getSavedBeats();
@@ -565,18 +573,6 @@ window.onload = () => {
         updateSavedBeatsList();
         document.getElementById('saved-beats-select').value = name;
         alert(`Beat saved as "${name}"`);
-    };
-    
-    document.getElementById("load-btn").onclick = () => {
-        const select = document.getElementById('saved-beats-select');
-        if (!select.value) {
-            alert('Please select a beat to load');
-            return;
-        }
-        const beats = getSavedBeats();
-        if (beats[select.value]) {
-            loadBeatData(beats[select.value]);
-        }
     };
     
     document.getElementById("rename-btn").onclick = () => {
