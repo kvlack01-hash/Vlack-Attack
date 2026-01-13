@@ -72,6 +72,19 @@
     </div>
 </div>
 
+<div class="controls" style="margin-top: 15px;">
+    <button id="save-btn" style="background: #e67e22; color: white;">💾 Save Beat</button>
+    <div class="control-group">
+        <span class="label-text">Saved Beats</span>
+        <select id="saved-beats-select" style="min-width: 150px;">
+            <option value="">-- Select a beat --</option>
+        </select>
+    </div>
+    <button id="load-btn" style="background: #16a085; color: white;">Load</button>
+    <button id="rename-btn" style="background: #8e44ad; color: white;">Rename</button>
+    <button id="delete-btn" style="background: #c0392b; color: white;">Delete</button>
+</div>
+
 <script>
 const VF = Vex.Flow;
 
@@ -461,9 +474,73 @@ function scheduler() {
     timerID = setTimeout(scheduler, 25);
 }
 
+// --- BEAT SAVE/LOAD FUNCTIONS ---
+function getSavedBeats() {
+    const saved = localStorage.getItem('vlackAttackBeats');
+    return saved ? JSON.parse(saved) : {};
+}
+
+function saveBeats(beats) {
+    localStorage.setItem('vlackAttackBeats', JSON.stringify(beats));
+}
+
+function getCurrentBeatData() {
+    return {
+        element: document.getElementById('element-select').value,
+        cymbalPattern: document.getElementById('cymbal-select').value,
+        footPattern: document.getElementById('foot-select').value,
+        kickSnarePatterns: [...currentMid],
+        tempo: document.getElementById('tempo-slider').value,
+        pocket: document.getElementById('pocket-slider').value,
+        tripletMode: document.getElementById('triplet-mode').checked,
+        accentMode: document.getElementById('accent-mode').checked,
+        kit: document.getElementById('kit-select').value
+    };
+}
+
+function loadBeatData(beatData) {
+    document.getElementById('element-select').value = beatData.element;
+    document.getElementById('triplet-mode').checked = beatData.tripletMode;
+    document.getElementById('accent-mode').checked = beatData.accentMode;
+    updateMenus();
+    document.getElementById('cymbal-select').value = beatData.cymbalPattern;
+    document.getElementById('foot-select').value = beatData.footPattern;
+    currentMid = [...beatData.kickSnarePatterns];
+    document.getElementById('tempo-slider').value = beatData.tempo;
+    document.getElementById('bpm-display').innerText = beatData.tempo;
+    document.getElementById('pocket-slider').value = beatData.pocket;
+    document.getElementById('pocket-display').innerText = beatData.pocket;
+    document.getElementById('kit-select').value = beatData.kit;
+    document.getElementById('pocket-slider').disabled = beatData.tripletMode;
+    updateFootPatternForHiHatAccents();
+    generate();
+}
+
+function updateSavedBeatsList() {
+    const beats = getSavedBeats();
+    const select = document.getElementById('saved-beats-select');
+    select.innerHTML = '<option value="">-- Select a beat --</option>';
+    Object.keys(beats).sort().forEach(name => {
+        const option = document.createElement('option');
+        option.value = name;
+        option.text = name;
+        select.add(option);
+    });
+}
+
+function getNextBeatName() {
+    const beats = getSavedBeats();
+    let num = 1;
+    while (beats[`Beat ${String(num).padStart(3, '0')}`]) {
+        num++;
+    }
+    return `Beat ${String(num).padStart(3, '0')}`;
+}
+
 // --- EVENT HANDLERS ---
 window.onload = () => {
     updateMenus();
+    updateSavedBeatsList();
     document.querySelectorAll("select, input").forEach(el => {
         if (el.id === "kit-select") return;
         el.onchange = () => {
@@ -478,6 +555,65 @@ window.onload = () => {
         };
     });
     document.getElementById("gen-btn").onclick = () => generate(true);
+    
+    // Save/Load beat handlers
+    document.getElementById("save-btn").onclick = () => {
+        const beats = getSavedBeats();
+        const name = getNextBeatName();
+        beats[name] = getCurrentBeatData();
+        saveBeats(beats);
+        updateSavedBeatsList();
+        document.getElementById('saved-beats-select').value = name;
+        alert(`Beat saved as "${name}"`);
+    };
+    
+    document.getElementById("load-btn").onclick = () => {
+        const select = document.getElementById('saved-beats-select');
+        if (!select.value) {
+            alert('Please select a beat to load');
+            return;
+        }
+        const beats = getSavedBeats();
+        if (beats[select.value]) {
+            loadBeatData(beats[select.value]);
+        }
+    };
+    
+    document.getElementById("rename-btn").onclick = () => {
+        const select = document.getElementById('saved-beats-select');
+        if (!select.value) {
+            alert('Please select a beat to rename');
+            return;
+        }
+        const newName = prompt('Enter new name:', select.value);
+        if (newName && newName !== select.value) {
+            const beats = getSavedBeats();
+            if (beats[newName]) {
+                alert('A beat with that name already exists');
+                return;
+            }
+            beats[newName] = beats[select.value];
+            delete beats[select.value];
+            saveBeats(beats);
+            updateSavedBeatsList();
+            select.value = newName;
+        }
+    };
+    
+    document.getElementById("delete-btn").onclick = () => {
+        const select = document.getElementById('saved-beats-select');
+        if (!select.value) {
+            alert('Please select a beat to delete');
+            return;
+        }
+        if (confirm(`Delete "${select.value}"?`)) {
+            const beats = getSavedBeats();
+            delete beats[select.value];
+            saveBeats(beats);
+            updateSavedBeatsList();
+        }
+    };
+    
     generate();
 };
 
