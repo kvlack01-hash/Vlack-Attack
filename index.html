@@ -160,7 +160,7 @@ function getAccentLogic(patternName, index, isHit) {
             case 'shuffle': return pos3 === 0;
             case 'swing': return pos6 === 0;
             case '3:2 (down)': return (pos12 === 0 || pos12 === 4 || pos12 === 8);
-            case '3:2 (up)': return (pos12 === 2 || pos12 === 6 || pos12 === 10);
+            case '3:2 (up)': return (pos12 === 1 || pos12 === 5 || pos12 === 9);
             case '3:2 (down) shuffle': return (pos6 === 0 || pos6 === 4);
             case '3:2 (up) shuffle': return (pos6 === 1 || pos6 === 3);
             case '3:4 v1': return (pos12 === 2 || pos12 === 6 || pos12 === 10);
