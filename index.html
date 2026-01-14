@@ -2,86 +2,586 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Vlack Attack Beat Randomizer</title>
     <script src="https://cdn.jsdelivr.net/npm/vexflow@4.2.2/build/cjs/vexflow.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Bebas+Neue&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Segoe UI', sans-serif; text-align: center; background: #f0f2f5; padding: 20px; }
-        .container { background: white; max-width: 1300px; margin: 0 auto; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
-        #output { background: white; margin: 20px 0; min-height: 520px; border: 1px solid #e1e4e8; border-radius: 12px; display: flex; justify-content; align-items: center; overflow-x: auto; }
-        .controls { display: flex; justify-content: center; align-items: center; padding: 20px; background: #f8f9fa; border-radius: 12px; border: 1px solid #eee; flex-wrap: wrap; gap: 15px; }
-        .control-group { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; }
-        button, select { padding: 10px 12px; cursor: pointer; border-radius: 8px; border: 1px solid #ced4da; background: white; font-weight: bold; }
-        #gen-btn { background: #27ae60; color: white; border: none; padding: 12px 25px; }
-        .label-text { font-size: 0.8rem; font-weight: bold; color: #777; text-transform: uppercase; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body { 
+            font-family: 'Space Mono', monospace;
+            background: #0a0a0a;
+            min-height: 100vh;
+            padding: 0;
+            color: #fff;
+            overflow-x: hidden;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: #1a1a1a;
+            min-height: 100vh;
+        }
+        
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+            padding: 40px 20px 30px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                repeating-linear-gradient(
+                    0deg,
+                    transparent,
+                    transparent 2px,
+                    rgba(0,0,0,0.03) 2px,
+                    rgba(0,0,0,0.03) 4px
+                );
+            pointer-events: none;
+        }
+        
+        .header h1 {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 3.5rem;
+            font-weight: 400;
+            letter-spacing: 8px;
+            margin-bottom: 5px;
+            color: #000;
+            text-shadow: 2px 2px 0 rgba(255,255,255,0.3);
+            position: relative;
+            z-index: 1;
+        }
+        
+        .header p {
+            font-size: 0.85rem;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: #000;
+            opacity: 0.8;
+            font-weight: 700;
+            position: relative;
+            z-index: 1;
+        }
+        
+        /* Notation Display */
+        #output {
+            background: #fff;
+            padding: 20px;
+            min-height: 300px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow-x: auto;
+            border-bottom: 4px solid #ff6b35;
+        }
+        
+        /* Controls Container */
+        .controls {
+            padding: 20px;
+        }
+        
+        /* Randomize Button - Centered */
+        .randomize-section {
+            margin-bottom: 20px;
+        }
+        
+        .big-btn {
+            width: 100%;
+            padding: 20px;
+            border: none;
+            border-radius: 8px;
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.5rem;
+            letter-spacing: 2px;
+            cursor: pointer;
+            transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+            text-transform: uppercase;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .big-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+        
+        .big-btn:active::before {
+            left: 100%;
+        }
+        
+        .big-btn:active {
+            transform: scale(0.98);
+        }
+        
+        .big-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+            background: #333 !important;
+            color: #666 !important;
+        }
+        
+        .randomize-btn {
+            background: linear-gradient(135deg, #4ecdc4 0%, #44a08d 100%);
+            color: #000;
+            font-weight: 700;
+            box-shadow: 0 4px 15px rgba(78, 205, 196, 0.4);
+        }
+        
+        /* Kit and Play Row */
+        .kit-play-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .kit-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .kit-label {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #999;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        select {
+            padding: 14px 12px;
+            border: 2px solid #333;
+            border-radius: 8px;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.9rem;
+            font-weight: 700;
+            background: #0a0a0a;
+            color: #fff;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        select:focus {
+            outline: none;
+            border-color: #ff6b35;
+        }
+        
+        select:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+            background: #111;
+        }
+        
+        .play-btn {
+            background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+            color: #000;
+            font-weight: 700;
+            box-shadow: 0 4px 15px rgba(255, 107, 53, 0.4);
+        }
+        
+        /* Sliders Section */
+        .sliders-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #2a2a2a;
+        }
+        
+        .slider-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .slider-group label {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #999;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .slider-value {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #ff6b35;
+        }
+        
+        .slider-group input[type="range"] {
+            width: 100%;
+            height: 8px;
+            border-radius: 4px;
+            background: #0a0a0a;
+            border: 2px solid #333;
+            outline: none;
+            -webkit-appearance: none;
+            cursor: pointer;
+        }
+        
+        .slider-group input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(255, 107, 53, 0.5);
+            transition: all 0.2s;
+        }
+        
+        .slider-group input[type="range"]::-webkit-slider-thumb:active {
+            transform: scale(1.2);
+        }
+        
+        .slider-group input[type="range"]::-moz-range-thumb {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 2px 8px rgba(255, 107, 53, 0.5);
+        }
+        
+        .slider-group input[type="range"]:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+        
+        /* Toggle Row */
+        .toggle-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #2a2a2a;
+        }
+        
+        /* Select Buttons */
+        .select-buttons {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .select-btn {
+            padding: 12px 20px;
+            border: 2px solid #333;
+            background: #0a0a0a;
+            color: #999;
+            border-radius: 8px;
+            font-family: 'Space Mono', monospace;
+            font-weight: 700;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .select-btn.active {
+            background: linear-gradient(135deg, #4ecdc4 0%, #44a08d 100%);
+            border-color: #4ecdc4;
+            color: #000;
+            box-shadow: 0 4px 12px rgba(78, 205, 196, 0.3);
+        }
+        
+        .select-btn:active {
+            transform: scale(0.95);
+        }
+        
+        /* Lock Button */
+        .lock-btn {
+            padding: 12px 18px;
+            border: 2px solid #333;
+            background: #0a0a0a;
+            border-radius: 8px;
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            min-width: 58px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .lock-btn.locked {
+            border-color: #e74c3c;
+            background: #2a1616;
+            box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
+        }
+        
+        /* Section */
+        .section {
+            margin-bottom: 20px;
+            padding: 20px;
+            background: #0a0a0a;
+            border-radius: 12px;
+            border: 2px solid #2a2a2a;
+        }
+        
+        .section-title {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #ff6b35;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        
+        .section-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 15px;
+        }
+        
+        .section-left {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .section-right {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        /* Accent Toggle */
+        .accent-toggle {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            background: #1a1a1a;
+            border-radius: 8px;
+            border: 2px solid #2a2a2a;
+            transition: all 0.2s;
+        }
+        
+        .accent-toggle:has(input:checked) {
+            border-color: #4ecdc4;
+            background: #0f1f1e;
+        }
+        
+        .accent-toggle input[type="checkbox"] {
+            width: 22px;
+            height: 22px;
+            cursor: pointer;
+            accent-color: #4ecdc4;
+        }
+        
+        .accent-toggle label {
+            font-weight: 700;
+            color: #ccc;
+            cursor: pointer;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        /* Save/Load Section */
+        .save-section {
+            padding: 20px;
+            background: #0a0a0a;
+            border-radius: 12px;
+            border: 2px solid #2a2a2a;
+            margin-bottom: 20px;
+        }
+        
+        .save-load-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .save-btn {
+            background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
+            color: #fff;
+            font-weight: 700;
+            box-shadow: 0 4px 15px rgba(155, 89, 182, 0.4);
+        }
+        
+        /* Text Buttons */
+        .text-buttons {
+            display: flex;
+            justify-content: space-between;
+            padding-top: 10px;
+            border-top: 1px solid #2a2a2a;
+        }
+        
+        .text-btn {
+            background: none;
+            border: none;
+            color: #4ecdc4;
+            font-family: 'Space Mono', monospace;
+            font-weight: 700;
+            font-size: 0.85rem;
+            cursor: pointer;
+            text-decoration: none;
+            padding: 8px 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.2s;
+        }
+        
+        .text-btn:active {
+            opacity: 0.6;
+            transform: scale(0.95);
+        }
+        
         .vf-flag { display: none !important; }
-        select:disabled { opacity: 0.5; cursor: not-allowed; background: #f5f5f5; }
+        
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .section, .save-section {
+            animation: fadeIn 0.3s ease-out;
+        }
+        
+        /* Mobile optimizations */
+        @media (max-width: 600px) {
+            .header h1 { font-size: 2.8rem; }
+            .big-btn { font-size: 1.3rem; padding: 18px; }
+            #output { padding: 15px; }
+        }
     </style>
 </head>
 <body>
 
-<div id="output"></div>
-
-<div class="controls">
-    <div class="control-group">
-        <span class="label-text">Element</span>
-        <select id="element-select">
-            <option value="ride">Ride</option>
-            <option value="hi-hat">Hi-Hat</option>
-        </select>
-    </div>
-
-    <div class="control-group">
-        <span class="label-text">Ride Pattern</span>
-        <select id="cymbal-select"></select>
-    </div>
-
-    <div class="control-group">
-        <span class="label-text">Left Foot</span>
-        <select id="foot-select"></select>
+<div class="container">
+    <!-- Header -->
+    <div class="header">
+        <h1>VLACK ATTACK</h1>
+        <p>Beat Randomizer</p>
     </div>
     
-    <button id="gen-btn">Randomize Kick/Snare</button>
+    <!-- Notation Display -->
+    <div id="output"></div>
     
-    <div class="control-group">
-        <span class="label-text">Tempo: <span id="bpm-display">90</span> BPM</span>
-        <input type="range" id="tempo-slider" min="40" max="220" value="90">
+    <!-- Controls -->
+    <div class="controls">
+        <!-- Randomize Button (Centered) -->
+        <div class="randomize-section">
+            <button class="big-btn randomize-btn" id="gen-btn">⚡ Randomize Kick/Snare</button>
+        </div>
+        
+        <!-- Drum Kit & Play Button Row -->
+        <div class="kit-play-row">
+            <div class="kit-group">
+                <div class="kit-label">Drum Kit</div>
+                <select id="kit-select">
+                    <option value="studio">Studio</option>
+                    <option value="jazz">Jazz</option>
+                    <option value="lo-fi">Lo-Fi</option>
+                    <option value="muffled">Muffled</option>
+                    <option value="boomy">Boomy</option>
+                    <option value="metal">Metal</option>
+                </select>
+            </div>
+            <button class="big-btn play-btn" id="metro-btn">▶ Play Beat</button>
+        </div>
+        
+        <!-- Sliders -->
+        <div class="sliders-section">
+            <div class="slider-group">
+                <label>
+                    <span>Tempo</span>
+                    <span class="slider-value"><span id="bpm-display">90</span> BPM</span>
+                </label>
+                <input type="range" id="tempo-slider" min="40" max="220" value="90">
+            </div>
+            <div class="slider-group">
+                <label>
+                    <span>Pocket</span>
+                    <span class="slider-value"><span id="pocket-display">0</span>%</span>
+                </label>
+                <input type="range" id="pocket-slider" min="0" max="30" value="0">
+            </div>
+        </div>
+        
+        <!-- Toggle Row: Triplet/Straight & Lock -->
+        <div class="toggle-row">
+            <div class="select-buttons">
+                <button class="select-btn active" data-mode="straight">Straight</button>
+                <button class="select-btn" data-mode="triplet">Triplet</button>
+            </div>
+            <button class="lock-btn" id="lock-btn">🔓</button>
+        </div>
+        
+        <!-- Right Hand Section -->
+        <div class="section">
+            <div class="section-title">→ Right Hand</div>
+            <div class="section-content">
+                <div class="section-left">
+                    <div class="select-buttons">
+                        <button class="select-btn" data-element="ride">Ride</button>
+                        <button class="select-btn active" data-element="hi-hat">Hi-Hat</button>
+                    </div>
+                </div>
+                <div class="section-right">
+                    <div class="accent-toggle">
+                        <input type="checkbox" id="accent-mode">
+                        <label for="accent-mode">Accents</label>
+                    </div>
+                    <select id="cymbal-select"></select>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Left Foot Section -->
+        <div class="section">
+            <div class="section-title">← Left Foot</div>
+            <div class="section-content">
+                <select id="foot-select"></select>
+            </div>
+        </div>
+        
+        <!-- Save/Load Section -->
+        <div class="save-section">
+            <div class="save-load-row">
+                <button class="big-btn save-btn" id="save-btn">💾 Save Beat</button>
+                <select id="saved-beats-select">
+                    <option value="">-- Select a Beat --</option>
+                </select>
+            </div>
+            <div class="text-buttons">
+                <button class="text-btn" id="delete-btn">Delete</button>
+                <button class="text-btn" id="rename-btn">Rename</button>
+            </div>
+        </div>
     </div>
-
-    <div class="control-group">
-        <span class="label-text">Pocket: <span id="pocket-display">0</span>%</span>
-        <input type="range" id="pocket-slider" min="0" max="30" value="0">
-    </div>
-
-    <div class="control-group">
-        <span class="label-text">Drum Kit</span>
-        <select id="kit-select">
-            <option value="studio">Studio</option>
-            <option value="jazz">Jazz</option>
-            <option value="lo-fi">Lo-Fi</option>
-            <option value="muffled">Muffled</option>
-            <option value="boomy">Boomy</option>
-            <option value="metal">Metal</option>
-        </select>
-    </div>
-
-    <button id="metro-btn" style="background: #3498db; color: white;">Play Beat</button>
-    <div style="display: flex; gap: 15px; align-items: center; background: #fff; padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
-        <label><input type="checkbox" id="triplet-mode"> Triplet Mode</label>
-        <label><input type="checkbox" id="accent-mode"> Accents (Ride)</label>
-        <label><input type="checkbox" id="freeze-bottom"> Freeze Kick/Snare</label>
-    </div>
-</div>
-
-<div class="controls" style="margin-top: 15px;">
-    <button id="save-btn" style="background: #e67e22; color: white;">💾 Save Beat</button>
-    <div class="control-group">
-        <span class="label-text">Saved Beats</span>
-        <select id="saved-beats-select" style="min-width: 150px;">
-            <option value="">-- Select a beat --</option>
-        </select>
-    </div>
-    <button id="rename-btn" style="background: #8e44ad; color: white;">Rename</button>
-    <button id="delete-btn" style="background: #c0392b; color: white;">Delete</button>
 </div>
 
 <script>
@@ -95,7 +595,7 @@ let currentBeat = 0;
 let nextNoteTime = 0.0;
 let timerID = null;
 let currentMid = [];
-let activeHH = null; // Reserved for Hi-Hat Choke Logic
+let activeHH = null;
 
 // --- RHYTHM DATA ---
 const tCymPlain = ['down beats', 'shuffle', 'swing', '3:2 (down)', '3:2 (up)', '3:4 v1', '3:4 v2', '3:4 v3'];
@@ -118,11 +618,8 @@ const sFoot = { 'down beats': [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0], '2 and 4': [
 const tMidPool = [[1,0,0], [0,1,0], [1,0,1], [0,0,1], [1,1,0], [0,1,1]];
 const sMidPool = [[1,0,0,0], [0,1,0,0], [0,0,1,0], [0,0,0,1], [1,0,1,0], [0,1,0,1], [1,1,0,0], [0,1,1,0], [0,0,1,1], [1,0,0,1], [1,1,1,0], [0,1,1,1], [1,0,1,1], [1,1,0,1]];
 
-// Generate foot pattern based on hi-hat accent pattern
-// Foot clamps down after each open hi-hat
 function getFootPatternForHiHatAccents(cymbalPattern, isTriplet = false) {
     if (isTriplet) {
-        // Triplet mode foot patterns
         const tripletFootPatterns = {
             'shuffle': [0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0],
             'swing': [0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0],
@@ -136,7 +633,6 @@ function getFootPatternForHiHatAccents(cymbalPattern, isTriplet = false) {
         };
         return tripletFootPatterns[cymbalPattern] || null;
     } else {
-        // Standard mode foot patterns (16th note subdivision)
         const standardFootPatterns = {
             'down beats': [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0],
             'up beats': [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0],
@@ -149,10 +645,9 @@ function getFootPatternForHiHatAccents(cymbalPattern, isTriplet = false) {
     }
 }
 
-// --- UI & NOTATION ---
 function getAccentLogic(patternName, index, isHit) {
     if (!document.getElementById('accent-mode').checked || !isHit) return false;
-    const isTri = document.getElementById("triplet-mode").checked;
+    const isTri = isTripletMode();
     if (isTri) {
         const pos3 = index % 3, pos6 = index % 6, pos12 = index % 12;
         switch(patternName) {
@@ -181,14 +676,23 @@ function getAccentLogic(patternName, index, isHit) {
     }
 }
 
+function isTripletMode() {
+    return document.querySelector('[data-mode="triplet"]').classList.contains('active');
+}
+
+function getElement() {
+    return document.querySelector('[data-element].active').dataset.element;
+}
+
+function isLocked() {
+    return document.getElementById('lock-btn').classList.contains('locked');
+}
+
 function updateFootPatternForHiHatAccents() {
     const isAccent = document.getElementById("accent-mode").checked;
-    const element = document.getElementById('element-select').value;
+    const element = getElement();
     const fSel = document.getElementById("foot-select");
-    const isTri = document.getElementById("triplet-mode").checked;
     
-    // If accent mode is on AND hi-hat is selected, 
-    // the foot pattern is determined by the hi-hat pattern (for both standard and triplet)
     if (isAccent && element === 'hi-hat') {
         fSel.disabled = true;
     } else {
@@ -197,7 +701,7 @@ function updateFootPatternForHiHatAccents() {
 }
 
 function updateMenus() {
-    const isTri = document.getElementById("triplet-mode").checked;
+    const isTri = isTripletMode();
     const isAcc = document.getElementById("accent-mode").checked;
     const cSel = document.getElementById("cymbal-select");
     const previousCymbal = cSel.value;
@@ -218,13 +722,12 @@ function updateMenus() {
     });
     fSel.value = Array.from(fSel.options).some(opt => opt.value === previousFoot) ? previousFoot : fSel.options[0].value;
     
-    // Update foot pattern based on hi-hat accents
     updateFootPatternForHiHatAccents();
 }
 
 function createNote(vIdx, dur, isHit, bIdx, isAcc = false) {
     let key, stem, restKey;
-    const element = document.getElementById('element-select').value;
+    const element = getElement();
     let cleanDur = dur.replace('r', '');
     let actualRest = !isHit || dur.includes('r');
 
@@ -256,15 +759,8 @@ function createNote(vIdx, dur, isHit, bIdx, isAcc = false) {
     }
     if (cleanDur.includes('d')) VF.Dot.buildAndAttach([note], { all: true });
     
-    // Set consistent key lines for all voices
     if (vIdx === 2) {
-        note.setKeyLine(0, 2); // Bottom voice always on line 2
-    } else if (vIdx === 1) {
-        // Middle voice - keep notes at their natural positions (F/4 or C/5)
-        // Don't adjust key lines for middle voice
-    } else if (vIdx === 0) {
-        // Top voice - keep at G/5 position
-        // Don't adjust key lines for top voice
+        note.setKeyLine(0, 2);
     }
     
     return note;
@@ -273,7 +769,7 @@ function createNote(vIdx, dur, isHit, bIdx, isAcc = false) {
 function generate(forceRandom = false) {
     const div = document.getElementById("output");
     div.innerHTML = "";
-    const isTri = document.getElementById("triplet-mode").checked;
+    const isTri = isTripletMode();
     const sub = isTri ? 3 : 4;
     const renderer = new VF.Renderer(div, VF.Renderer.Backends.SVG);
     renderer.resize(1000, 500);
@@ -284,7 +780,7 @@ function generate(forceRandom = false) {
     s2.addClef("percussion").addTimeSignature("4/4").setContext(ctx).draw();
     new VF.StaveConnector(s1, s2).setType(VF.StaveConnector.type.BRACKET).setContext(ctx).draw();
 
-    if (forceRandom || !document.getElementById("freeze-bottom").checked || currentMid.length === 0) {
+    if (forceRandom || !isLocked() || currentMid.length === 0) {
         currentMid = [];
         const pool = isTri ? tMidPool : sMidPool;
         for (let i = 0; i < 4; i++) currentMid.push(pool[Math.floor(Math.random() * pool.length)]);
@@ -294,9 +790,8 @@ function generate(forceRandom = false) {
     const cymName = document.getElementById("cymbal-select").value;
     const footName = document.getElementById("foot-select").value;
     const isAccent = document.getElementById("accent-mode").checked;
-    const element = document.getElementById('element-select').value;
+    const element = getElement();
     
-    // Generate dynamic foot pattern for hi-hat accent mode
     let customFootPattern = null;
     if (isAccent && element === 'hi-hat') {
         customFootPattern = getFootPatternForHiHatAccents(cymName, isTri);
@@ -307,19 +802,14 @@ function generate(forceRandom = false) {
             let slice = [], pat;
             
             if (vIdx === 0) {
-                // Top voice - cymbal pattern
                 pat = (isTri ? tCym : sCym)[cymName];
             } else if (vIdx === 2) {
-                // Bottom voice - foot pattern
                 if (customFootPattern) {
-                    // Use custom foot pattern for hi-hat accent mode
                     pat = customFootPattern;
                 } else {
-                    // Use selected foot pattern
                     pat = (isTri ? tFoot : sFoot)[footName];
                 }
             } else {
-                // Middle voice - kick/snare
                 pat = currentMid[b];
             }
             
@@ -384,28 +874,20 @@ function playDrum(name, time, isAcc = false) {
         const gainNode = audioCtx.createGain();
         source.buffer = buffers[id];
 
-        // --- VOLUME BALANCING ---
-        // Set different gain levels for better mix balance
-        let gainValue = 1.0; // Default for kick/snare
+        let gainValue = 1.0;
         if (id.includes('hihat') || id.includes('ride')) {
-            gainValue = 0.4; // Cymbals quieter (top voice and foot)
+            gainValue = 0.4;
         }
         gainNode.gain.value = gainValue;
-        // ----------------------------
 
-        // --- FIXED HI-HAT CHOKE LOGIC ---
-        // Only apply choke logic for hi-hat sounds
         const isHiHat = id.includes('hihat');
         
         if (isHiHat) {
-            // If there's a previous hi-hat ringing, choke it
             if (activeHH) {
                 try {
-                    // Determine fade time based on whether we're opening or closing
                     const isOpeningHit = id === 'hihat_open';
                     const fadeTime = isOpeningHit ? 0.08 : 0.03; 
                     
-                    // Use linearRamp for a clean choke/clamp sound
                     activeHH.gainNode.gain.setValueAtTime(activeHH.gainNode.gain.value, time);
                     activeHH.gainNode.gain.linearRampToValueAtTime(0, time + fadeTime);
                     activeHH.source.stop(time + fadeTime + 0.01);
@@ -413,11 +895,8 @@ function playDrum(name, time, isAcc = false) {
                     console.error("Choke error:", e);
                 }
             }
-            // Track this hi-hat for future choking
             activeHH = { source: source, gainNode: gainNode };
         }
-        // Ride cymbals are NOT tracked and will never be choked
-        // ----------------------------
 
         source.connect(gainNode);
         gainNode.connect(audioCtx.destination);
@@ -428,16 +907,15 @@ function playDrum(name, time, isAcc = false) {
 }
 
 function scheduleSounds(time) {
-    const isTri = document.getElementById("triplet-mode").checked;
+    const isTri = isTripletMode();
     const sub = isTri ? 3 : 4;
     const cymName = document.getElementById("cymbal-select").value;
     const footName = document.getElementById("foot-select").value;
-    const el = document.getElementById('element-select').value;
+    const el = getElement();
     const isAccent = document.getElementById("accent-mode").checked;
     
     const cymPat = (isTri ? tCym : sCym)[cymName];
     
-    // Determine foot pattern - use custom for hi-hat accent mode
     let footPat;
     if (isAccent && el === 'hi-hat') {
         footPat = getFootPatternForHiHatAccents(cymName, isTri);
@@ -458,7 +936,7 @@ function scheduleSounds(time) {
 function scheduler() {
     const tempo = document.getElementById('tempo-slider').value;
     const pocket = document.getElementById('pocket-slider').value / 100;
-    const isTri = document.getElementById("triplet-mode").checked;
+    const isTri = isTripletMode();
     const sps = (60.0 / tempo) / (isTri ? 3 : 4);
 
     while (nextNoteTime < audioCtx.currentTime + 0.15) {
@@ -485,21 +963,36 @@ function saveBeats(beats) {
 
 function getCurrentBeatData() {
     return {
-        element: document.getElementById('element-select').value,
+        element: getElement(),
         cymbalPattern: document.getElementById('cymbal-select').value,
         footPattern: document.getElementById('foot-select').value,
         kickSnarePatterns: [...currentMid],
         tempo: document.getElementById('tempo-slider').value,
         pocket: document.getElementById('pocket-slider').value,
-        tripletMode: document.getElementById('triplet-mode').checked,
+        tripletMode: isTripletMode(),
         accentMode: document.getElementById('accent-mode').checked,
         kit: document.getElementById('kit-select').value
     };
 }
 
 function loadBeatData(beatData) {
-    document.getElementById('element-select').value = beatData.element;
-    document.getElementById('triplet-mode').checked = beatData.tripletMode;
+    // Set triplet/straight mode
+    document.querySelectorAll('[data-mode]').forEach(btn => {
+        btn.classList.remove('active');
+        if ((beatData.tripletMode && btn.dataset.mode === 'triplet') ||
+            (!beatData.tripletMode && btn.dataset.mode === 'straight')) {
+            btn.classList.add('active');
+        }
+    });
+    
+    // Set element
+    document.querySelectorAll('[data-element]').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.element === beatData.element) {
+            btn.classList.add('active');
+        }
+    });
+    
     document.getElementById('accent-mode').checked = beatData.accentMode;
     updateMenus();
     document.getElementById('cymbal-select').value = beatData.cymbalPattern;
@@ -518,7 +1011,7 @@ function loadBeatData(beatData) {
 function updateSavedBeatsList() {
     const beats = getSavedBeats();
     const select = document.getElementById('saved-beats-select');
-    select.innerHTML = '<option value="">-- Select a beat --</option>';
+    select.innerHTML = '<option value="">-- Select a Beat --</option>';
     Object.keys(beats).sort().forEach(name => {
         const option = document.createElement('option');
         option.value = name;
@@ -540,20 +1033,113 @@ function getNextBeatName() {
 window.onload = () => {
     updateMenus();
     updateSavedBeatsList();
-    document.querySelectorAll("select, input").forEach(el => {
-        if (el.id === "kit-select" || el.id === "saved-beats-select") return;
-        el.onchange = () => {
-            if (el.id === "triplet-mode" || el.id === "accent-mode") {
-                updateMenus();
-                document.getElementById("pocket-slider").disabled = document.getElementById("triplet-mode").checked;
+    
+    // Triplet/Straight toggle
+    document.querySelectorAll('[data-mode]').forEach(btn => {
+        btn.onclick = () => {
+            document.querySelectorAll('[data-mode]').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            updateMenus();
+            document.getElementById("pocket-slider").disabled = isTripletMode();
+            document.getElementById('saved-beats-select').value = "";
+            if (isLocked()) {
+                document.getElementById('saved-beats-select').value = "";
             }
-            if (el.id === "element-select" || el.id === "cymbal-select" || el.id === "accent-mode") {
-                updateFootPatternForHiHatAccents();
-            }
-            if (el.type !== 'range') generate();
+            generate();
         };
     });
-    document.getElementById("gen-btn").onclick = () => generate(true);
+    
+    // Element (Ride/Hi-Hat) toggle
+    document.querySelectorAll('[data-element]').forEach(btn => {
+        btn.onclick = () => {
+            document.querySelectorAll('[data-element]').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            updateFootPatternForHiHatAccents();
+            if (isLocked()) {
+                document.getElementById('saved-beats-select').value = "";
+            }
+            generate();
+        };
+    });
+    
+    // Lock button
+    document.getElementById('lock-btn').onclick = function() {
+        this.classList.toggle('locked');
+        this.textContent = this.classList.contains('locked') ? '🔒' : '🔓';
+        document.getElementById('gen-btn').disabled = this.classList.contains('locked');
+        document.getElementById('saved-beats-select').value = "";
+    };
+    
+    // Accent mode
+    document.getElementById('accent-mode').onchange = () => {
+        updateMenus();
+        if (isLocked()) {
+            document.getElementById('saved-beats-select').value = "";
+        }
+        generate();
+    };
+    
+    // Cymbal & Foot selects
+    document.getElementById('cymbal-select').onchange = () => {
+        updateFootPatternForHiHatAccents();
+        if (isLocked()) {
+            document.getElementById('saved-beats-select').value = "";
+        }
+        generate();
+    };
+    
+    document.getElementById('foot-select').onchange = () => {
+        if (isLocked()) {
+            document.getElementById('saved-beats-select').value = "";
+        }
+        generate();
+    };
+    
+    // Randomize button
+    document.getElementById("gen-btn").onclick = () => {
+        generate(true);
+        document.getElementById('saved-beats-select').value = "";
+    };
+    
+    // Play button
+    document.getElementById('metro-btn').onclick = async function() {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') await audioCtx.resume();
+        isPlaying = !isPlaying;
+
+        if (isPlaying) {
+            const kit = document.getElementById('kit-select').value;
+            if (Object.keys(buffers).length === 0) {
+                this.textContent = "⏳ Loading...";
+                await loadKit(kit);
+            }
+            currentBeat = 0;
+            nextNoteTime = audioCtx.currentTime + 0.05;
+            this.textContent = "⏹ Stop";
+            scheduler();
+        } else { 
+            clearTimeout(timerID); 
+            if (activeHH && activeHH.source) {
+                try { activeHH.source.stop(); } catch(e) {}
+            }
+            activeHH = null; 
+            this.textContent = "▶ Play Beat"; 
+        }
+    };
+    
+    // Kit change
+    document.getElementById('kit-select').addEventListener('change', async (e) => {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const btn = document.getElementById('metro-btn');
+        const oldText = btn.textContent;
+        btn.textContent = "⏳ Loading...";
+        await loadKit(e.target.value);
+        btn.textContent = oldText;
+    });
+    
+    // Sliders
+    document.getElementById('tempo-slider').oninput = (e) => document.getElementById('bpm-display').innerText = e.target.value;
+    document.getElementById('pocket-slider').oninput = (e) => document.getElementById('pocket-display').innerText = e.target.value;
     
     // Auto-load beat when selected from dropdown
     document.getElementById("saved-beats-select").onchange = (e) => {
@@ -564,7 +1150,7 @@ window.onload = () => {
         }
     };
     
-    // Save/Load beat handlers
+    // Save button
     document.getElementById("save-btn").onclick = () => {
         const beats = getSavedBeats();
         const name = getNextBeatName();
@@ -575,6 +1161,7 @@ window.onload = () => {
         alert(`Beat saved as "${name}"`);
     };
     
+    // Rename button
     document.getElementById("rename-btn").onclick = () => {
         const select = document.getElementById('saved-beats-select');
         if (!select.value) {
@@ -596,6 +1183,7 @@ window.onload = () => {
         }
     };
     
+    // Delete button
     document.getElementById("delete-btn").onclick = () => {
         const select = document.getElementById('saved-beats-select');
         if (!select.value) {
@@ -612,42 +1200,7 @@ window.onload = () => {
     
     generate();
 };
-
-document.getElementById('tempo-slider').oninput = (e) => document.getElementById('bpm-display').innerText = e.target.value;
-document.getElementById('pocket-slider').oninput = (e) => document.getElementById('pocket-display').innerText = e.target.value;
-
-document.getElementById('metro-btn').onclick = async function() {
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    if (audioCtx.state === 'suspended') await audioCtx.resume();
-    isPlaying = !isPlaying;
-
-    if (isPlaying) {
-        const kit = document.getElementById('kit-select').value;
-        if (Object.keys(buffers).length === 0) {
-            this.innerText = "Loading...";
-            await loadKit(kit);
-        }
-        currentBeat = 0;
-        nextNoteTime = audioCtx.currentTime + 0.05;
-        this.innerText = "Stop Playback";
-        scheduler();
-    } else { 
-        clearTimeout(timerID); 
-        if (activeHH && activeHH.source) {
-            try { activeHH.source.stop(); } catch(e) {}
-        }
-        activeHH = null; 
-        this.innerText = "Play Beat"; 
-    }
-};
-
-document.getElementById('kit-select').addEventListener('change', async (e) => {
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const btn = document.getElementById('metro-btn');
-    btn.innerText = "🔄 Loading...";
-    await loadKit(e.target.value);
-    btn.innerText = isPlaying ? "Stop Playback" : "Play Beat";
-});
 </script>
+
 </body>
 </html>
