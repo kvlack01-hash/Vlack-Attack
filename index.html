@@ -1103,16 +1103,41 @@ window.onload = () => {
     
     // Play button
     document.getElementById('metro-btn').onclick = async function() {
-        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        if (audioCtx.state === 'suspended') await audioCtx.resume();
+        // Initialize AudioContext on first user interaction (required for iOS)
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            console.log("AudioContext created:", audioCtx.state);
+        }
+        
+        // Always try to resume on iOS (it can get suspended)
+        if (audioCtx.state === 'suspended') {
+            await audioCtx.resume();
+            console.log("AudioContext resumed:", audioCtx.state);
+        }
+        
         isPlaying = !isPlaying;
 
         if (isPlaying) {
             const kit = document.getElementById('kit-select').value;
             if (Object.keys(buffers).length === 0) {
                 this.textContent = "⏳ Loading...";
-                await loadKit(kit);
+                try {
+                    await loadKit(kit);
+                    console.log("Kit loaded successfully");
+                } catch (e) {
+                    console.error("Kit loading failed:", e);
+                    alert("Failed to load drum kit. Please try again.");
+                    this.textContent = "▶ Play Beat";
+                    isPlaying = false;
+                    return;
+                }
             }
+            
+            // Extra resume attempt right before playing (iOS workaround)
+            if (audioCtx.state === 'suspended') {
+                await audioCtx.resume();
+            }
+            
             currentBeat = 0;
             nextNoteTime = audioCtx.currentTime + 0.05;
             this.textContent = "⏹ Stop";
@@ -1129,12 +1154,38 @@ window.onload = () => {
     
     // Kit change
     document.getElementById('kit-select').addEventListener('change', async (e) => {
-        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        // Only load kit if AudioContext has been initialized (user has clicked play at least once)
+        if (!audioCtx) {
+            console.log("AudioContext not initialized yet - kit will load on first play");
+            // Clear buffers so it will reload on next play
+            buffers = {};
+            return;
+        }
+        
         const btn = document.getElementById('metro-btn');
+        const wasPlaying = isPlaying;
+        
+        // Stop playback if playing
+        if (isPlaying) {
+            isPlaying = false;
+            clearTimeout(timerID);
+            if (activeHH && activeHH.source) {
+                try { activeHH.source.stop(); } catch(e) {}
+            }
+            activeHH = null;
+        }
+        
         const oldText = btn.textContent;
         btn.textContent = "⏳ Loading...";
-        await loadKit(e.target.value);
-        btn.textContent = oldText;
+        
+        try {
+            await loadKit(e.target.value);
+        } catch (error) {
+            console.error("Failed to load kit:", error);
+            alert("Failed to load kit. Please try again.");
+        }
+        
+        btn.textContent = wasPlaying ? "▶ Play Beat" : oldText;
     });
     
     // Sliders
