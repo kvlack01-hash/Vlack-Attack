@@ -867,40 +867,81 @@ function playDrum(name, time, isAcc = false) {
         if(name==='hihat') id='hihat_open'; 
     }
     
+    // Try to play from loaded buffer
     if (buffers[id]) {
-        const source = audioCtx.createBufferSource();
-        const gainNode = audioCtx.createGain();
-        source.buffer = buffers[id];
+        try {
+            const source = audioCtx.createBufferSource();
+            const gainNode = audioCtx.createGain();
+            source.buffer = buffers[id];
 
-        let gainValue = 1.0;
-        if (id.includes('hihat') || id.includes('ride')) {
-            gainValue = 0.4;
-        }
-        gainNode.gain.value = gainValue;
-
-        const isHiHat = id.includes('hihat');
-        
-        if (isHiHat) {
-            if (activeHH) {
-                try {
-                    const isOpeningHit = id === 'hihat_open';
-                    const fadeTime = isOpeningHit ? 0.08 : 0.03; 
-                    
-                    activeHH.gainNode.gain.setValueAtTime(activeHH.gainNode.gain.value, time);
-                    activeHH.gainNode.gain.linearRampToValueAtTime(0, time + fadeTime);
-                    activeHH.source.stop(time + fadeTime + 0.01);
-                } catch (e) {
-                    console.error("Choke error:", e);
-                }
+            let gainValue = 1.0;
+            if (id.includes('hihat') || id.includes('ride')) {
+                gainValue = 0.4;
             }
-            activeHH = { source: source, gainNode: gainNode };
-        }
+            gainNode.gain.value = gainValue;
 
-        source.connect(gainNode);
+            const isHiHat = id.includes('hihat');
+            
+            if (isHiHat) {
+                if (activeHH) {
+                    try {
+                        const isOpeningHit = id === 'hihat_open';
+                        const fadeTime = isOpeningHit ? 0.08 : 0.03; 
+                        
+                        activeHH.gainNode.gain.setValueAtTime(activeHH.gainNode.gain.value, time);
+                        activeHH.gainNode.gain.linearRampToValueAtTime(0, time + fadeTime);
+                        activeHH.source.stop(time + fadeTime + 0.01);
+                    } catch (e) {
+                        console.error("Choke error:", e);
+                    }
+                }
+                activeHH = { source: source, gainNode: gainNode };
+            }
+
+            source.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            source.start(time);
+            return; // Success!
+        } catch (e) {
+            console.error("Buffer playback failed:", id, e);
+        }
+    }
+    
+    // FALLBACK: If buffer doesn't exist or failed, synthesize a simple tone
+    // This helps diagnose if the issue is audio files or Web Audio API itself
+    console.log("Using synthesized fallback for:", id);
+    try {
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        
+        // Different frequencies for different drums
+        if (id.includes('kick')) {
+            oscillator.frequency.value = 60;
+            gainNode.gain.setValueAtTime(0.5, time);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, time + 0.5);
+        } else if (id.includes('snare')) {
+            oscillator.frequency.value = 200;
+            oscillator.type = 'triangle';
+            gainNode.gain.setValueAtTime(0.3, time);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, time + 0.2);
+        } else if (id.includes('hihat')) {
+            oscillator.frequency.value = 8000;
+            oscillator.type = 'square';
+            gainNode.gain.setValueAtTime(0.1, time);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, time + 0.1);
+        } else if (id.includes('ride')) {
+            oscillator.frequency.value = 3000;
+            oscillator.type = 'sine';
+            gainNode.gain.setValueAtTime(0.15, time);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, time + 0.3);
+        }
+        
+        oscillator.connect(gainNode);
         gainNode.connect(audioCtx.destination);
-        source.start(time);
-    } else {
-        console.warn(`Buffer not found: ${id}`);
+        oscillator.start(time);
+        oscillator.stop(time + 0.5);
+    } catch (e) {
+        console.error("Synthesized fallback failed:", e);
     }
 }
 
