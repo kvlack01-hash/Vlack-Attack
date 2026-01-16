@@ -492,9 +492,12 @@
     
     <!-- Controls -->
     <div class="controls">
-        <!-- Randomize Button (Centered) -->
+        <!-- Randomize Button & Lock -->
         <div class="randomize-section">
-            <button class="big-btn randomize-btn" id="gen-btn">⚡ Randomize Kick/Snare</button>
+            <div style="display: flex; gap: 15px; align-items: center;">
+                <button class="big-btn randomize-btn" id="gen-btn" style="flex: 1;">⚡ Randomize Kick/Snare</button>
+                <button class="lock-btn" id="lock-btn">🔓</button>
+            </div>
         </div>
         
         <!-- Drum Kit & Play Button Row -->
@@ -531,32 +534,27 @@
             </div>
         </div>
         
-        <!-- Toggle Row: Triplet/Straight & Lock -->
+        <!-- Toggle Row: Triplet/Straight -->
         <div class="toggle-row">
             <div class="select-buttons">
                 <button class="select-btn active" data-mode="straight">Straight</button>
                 <button class="select-btn" data-mode="triplet">Triplet</button>
             </div>
-            <button class="lock-btn" id="lock-btn">🔓</button>
         </div>
         
         <!-- Right Hand Section -->
         <div class="section">
             <div class="section-title">→ Right Hand</div>
-            <div class="section-content">
-                <div class="section-left">
-                    <div class="select-buttons">
-                        <button class="select-btn" data-element="ride">Ride</button>
-                        <button class="select-btn active" data-element="hi-hat">Hi-Hat</button>
-                    </div>
+            <div style="display: flex; flex-direction: column; gap: 15px;">
+                <div class="select-buttons">
+                    <button class="select-btn" data-element="ride">Ride</button>
+                    <button class="select-btn active" data-element="hi-hat">Hi-Hat</button>
                 </div>
-                <div class="section-right">
-                    <div class="accent-toggle">
-                        <input type="checkbox" id="accent-mode">
-                        <label for="accent-mode">Accents</label>
-                    </div>
-                    <select id="cymbal-select"></select>
+                <div class="accent-toggle">
+                    <input type="checkbox" id="accent-mode">
+                    <label for="accent-mode">Accents</label>
                 </div>
+                <select id="cymbal-select"></select>
             </div>
         </div>
         
@@ -1107,12 +1105,44 @@ window.onload = () => {
         if (!audioCtx) {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             console.log("AudioContext created:", audioCtx.state);
+            
+            // SAFARI/iOS FIX #1: Play a dummy oscillator IMMEDIATELY to unlock audio
+            // This MUST happen synchronously within the click handler
+            try {
+                const oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                gainNode.gain.value = 0.001; // Almost silent
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                oscillator.start(audioCtx.currentTime);
+                oscillator.stop(audioCtx.currentTime + 0.01);
+                console.log("Unlock oscillator played");
+            } catch (e) {
+                console.log("Unlock failed:", e);
+            }
+            
+            // SAFARI/iOS FIX #2: Also try with a buffer source
+            try {
+                const buffer = audioCtx.createBuffer(1, 1, 22050);
+                const source = audioCtx.createBufferSource();
+                source.buffer = buffer;
+                source.connect(audioCtx.destination);
+                source.start(0);
+                console.log("Unlock buffer played");
+            } catch (e) {
+                console.log("Buffer unlock failed:", e);
+            }
         }
         
         // Always try to resume on iOS (it can get suspended)
-        if (audioCtx.state === 'suspended') {
+        if (audioCtx.state !== 'running') {
+            console.log("Attempting to resume from state:", audioCtx.state);
             await audioCtx.resume();
-            console.log("AudioContext resumed:", audioCtx.state);
+            console.log("AudioContext after resume:", audioCtx.state);
+            
+            // Wait for state to settle
+            await new Promise(r => setTimeout(r, 50));
+            console.log("AudioContext after wait:", audioCtx.state);
         }
         
         isPlaying = !isPlaying;
@@ -1121,25 +1151,34 @@ window.onload = () => {
             const kit = document.getElementById('kit-select').value;
             if (Object.keys(buffers).length === 0) {
                 this.textContent = "⏳ Loading...";
+                this.disabled = true;
                 try {
                     await loadKit(kit);
-                    console.log("Kit loaded successfully");
+                    console.log("Kit loaded successfully, buffers:", Object.keys(buffers).length);
                 } catch (e) {
                     console.error("Kit loading failed:", e);
-                    alert("Failed to load drum kit. Please try again.");
+                    alert("Failed to load drum kit: " + e.message);
                     this.textContent = "▶ Play Beat";
+                    this.disabled = false;
                     isPlaying = false;
                     return;
                 }
+                this.disabled = false;
             }
             
             // Extra resume attempt right before playing (iOS workaround)
-            if (audioCtx.state === 'suspended') {
+            if (audioCtx.state !== 'running') {
                 await audioCtx.resume();
+                console.log("Final resume, state:", audioCtx.state);
             }
             
+            console.log("=== STARTING PLAYBACK ===");
+            console.log("AudioContext state:", audioCtx.state);
+            console.log("AudioContext time:", audioCtx.currentTime);
+            console.log("Loaded buffers:", Object.keys(buffers));
+            
             currentBeat = 0;
-            nextNoteTime = audioCtx.currentTime + 0.05;
+            nextNoteTime = audioCtx.currentTime + 0.1;
             this.textContent = "⏹ Stop";
             scheduler();
         } else { 
