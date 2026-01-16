@@ -5,15 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Vlack Attack Beat Randomizer</title>
     <script src="https://cdn.jsdelivr.net/npm/vexflow@4.2.2/build/cjs/vexflow.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Bebas+Neue&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&family=Bebas+Neue&display=swap" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
         body { 
-            font-family: 'Space Mono', monospace;
+            font-family: 'Montserrat', sans-serif;
             background: #0a0a0a;
             min-height: 100vh;
             padding: 0;
+            margin: 0;
             color: #fff;
             overflow-x: hidden;
         }
@@ -28,7 +29,7 @@
         /* Header */
         .header {
             background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
-            padding: 40px 20px 30px;
+            padding: 15px 15px 12px;
             text-align: center;
             position: relative;
             overflow: hidden;
@@ -53,11 +54,11 @@
         }
         
         .header h1 {
-            font-family: 'Bebas Neue', sans-serif;
-            font-size: 3.5rem;
-            font-weight: 400;
-            letter-spacing: 8px;
-            margin-bottom: 5px;
+            font-family: 'Montserrat', sans-serif;
+            font-size: 1.8rem;
+            font-weight: 800;
+            letter-spacing: 4px;
+            margin-bottom: 2px;
             color: #000;
             text-shadow: 2px 2px 0 rgba(255,255,255,0.3);
             position: relative;
@@ -65,8 +66,8 @@
         }
         
         .header p {
-            font-size: 0.85rem;
-            letter-spacing: 3px;
+            font-size: 0.65rem;
+            letter-spacing: 2px;
             text-transform: uppercase;
             color: #000;
             opacity: 0.8;
@@ -78,18 +79,18 @@
         /* Notation Display */
         #output {
             background: #fff;
-            padding: 20px;
-            min-height: 300px;
+            padding: 3px;
+            min-height: 180px;
             display: flex;
             justify-content: center;
             align-items: center;
             overflow-x: auto;
-            border-bottom: 4px solid #ff6b35;
+            border-bottom: 3px solid #ff6b35;
         }
         
         /* Controls Container */
         .controls {
-            padding: 20px;
+            padding: 12px;
         }
         
         /* Randomize Button - Centered */
@@ -99,12 +100,12 @@
         
         .big-btn {
             width: 100%;
-            padding: 20px;
+            padding: 10px;
             border: none;
             border-radius: 8px;
             font-family: 'Bebas Neue', sans-serif;
-            font-size: 1.5rem;
-            letter-spacing: 2px;
+            font-size: 0.95rem;
+            letter-spacing: 1.5px;
             cursor: pointer;
             transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
             text-transform: uppercase;
@@ -149,30 +150,30 @@
         .kit-play-row {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-bottom: 20px;
+            gap: 10px;
+            margin-bottom: 10px;
         }
         
         .kit-group {
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 6px;
         }
         
         .kit-label {
-            font-size: 0.75rem;
+            font-size: 0.65rem;
             font-weight: 700;
             color: #999;
             text-transform: uppercase;
-            letter-spacing: 1px;
+            letter-spacing: 0.5px;
         }
         
         select {
-            padding: 14px 12px;
+            padding: 10px 8px;
             border: 2px solid #333;
             border-radius: 8px;
-            font-family: 'Space Mono', monospace;
-            font-size: 0.9rem;
+            font-family: 'Montserrat', sans-serif;
+            font-size: 0.65rem;
             font-weight: 700;
             background: #0a0a0a;
             color: #fff;
@@ -202,16 +203,16 @@
         .sliders-section {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-bottom: 20px;
-            padding-bottom: 20px;
+            gap: 10px;
+            margin-bottom: 10px;
+            padding-bottom: 10px;
             border-bottom: 2px solid #2a2a2a;
         }
         
         .slider-group {
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 6px;
         }
         
         .slider-group label {
@@ -278,8 +279,8 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 20px;
+            margin-bottom: 10px;
+            padding-bottom: 10px;
             border-bottom: 2px solid #2a2a2a;
         }
         
@@ -290,14 +291,14 @@
         }
         
         .select-btn {
-            padding: 12px 20px;
+            padding: 8px 14px;
             border: 2px solid #333;
             background: #0a0a0a;
             color: #999;
             border-radius: 8px;
-            font-family: 'Space Mono', monospace;
+            font-family: 'Montserrat', sans-serif;
             font-weight: 700;
-            font-size: 0.85rem;
+            font-size: 0.6rem;
             cursor: pointer;
             transition: all 0.2s;
             text-transform: uppercase;
@@ -317,14 +318,14 @@
         
         /* Lock Button */
         .lock-btn {
-            padding: 12px 18px;
+            padding: 8px 13px;
             border: 2px solid #333;
             background: #0a0a0a;
             border-radius: 8px;
-            font-size: 1.5rem;
+            font-size: 1.05rem;
             cursor: pointer;
             transition: all 0.2s;
-            min-width: 58px;
+            min-width: 45px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -338,20 +339,20 @@
         
         /* Section */
         .section {
-            margin-bottom: 20px;
-            padding: 20px;
+            margin-bottom: 10px;
+            padding: 12px;
             background: #0a0a0a;
-            border-radius: 12px;
+            border-radius: 10px;
             border: 2px solid #2a2a2a;
         }
         
         .section-title {
-            font-size: 0.75rem;
+            font-size: 0.65rem;
             font-weight: 700;
             color: #ff6b35;
-            margin-bottom: 15px;
+            margin-bottom: 10px;
             text-transform: uppercase;
-            letter-spacing: 2px;
+            letter-spacing: 1.5px;
         }
         
         .section-content {
@@ -379,7 +380,7 @@
             display: flex;
             align-items: center;
             gap: 10px;
-            padding: 10px 12px;
+            padding: 7px 8px;
             background: #1a1a1a;
             border-radius: 8px;
             border: 2px solid #2a2a2a;
@@ -392,8 +393,8 @@
         }
         
         .accent-toggle input[type="checkbox"] {
-            width: 22px;
-            height: 22px;
+            width: 18px;
+            height: 18px;
             cursor: pointer;
             accent-color: #4ecdc4;
         }
@@ -402,25 +403,25 @@
             font-weight: 700;
             color: #ccc;
             cursor: pointer;
-            font-size: 0.9rem;
+            font-size: 0.65rem;
             text-transform: uppercase;
             letter-spacing: 1px;
         }
         
         /* Save/Load Section */
         .save-section {
-            padding: 20px;
+            padding: 12px;
             background: #0a0a0a;
-            border-radius: 12px;
+            border-radius: 10px;
             border: 2px solid #2a2a2a;
-            margin-bottom: 20px;
+            margin-bottom: 10px;
         }
         
         .save-load-row {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-bottom: 15px;
+            gap: 10px;
+            margin-bottom: 10px;
         }
         
         .save-btn {
@@ -434,7 +435,7 @@
         .text-buttons {
             display: flex;
             justify-content: space-between;
-            padding-top: 10px;
+            padding-top: 8px;
             border-top: 1px solid #2a2a2a;
         }
         
@@ -442,12 +443,12 @@
             background: none;
             border: none;
             color: #4ecdc4;
-            font-family: 'Space Mono', monospace;
+            font-family: 'Montserrat', sans-serif;
             font-weight: 700;
-            font-size: 0.85rem;
+            font-size: 0.6rem;
             cursor: pointer;
             text-decoration: none;
-            padding: 8px 12px;
+            padding: 6px 8px;
             text-transform: uppercase;
             letter-spacing: 1px;
             transition: all 0.2s;
@@ -770,10 +771,10 @@ function generate(forceRandom = false) {
     const isTri = isTripletMode();
     const sub = isTri ? 3 : 4;
     const renderer = new VF.Renderer(div, VF.Renderer.Backends.SVG);
-    renderer.resize(1000, 500);
+    renderer.resize(1000, 350);
     const ctx = renderer.getContext();
-    const s1 = new VF.Stave(80, 80, 870).addClef("percussion").addTimeSignature("4/4").setContext(ctx).draw();
-    const s2 = new VF.Stave(80, 260, 870);
+    const s1 = new VF.Stave(80, 40, 870).addClef("percussion").addTimeSignature("4/4").setContext(ctx).draw();
+    const s2 = new VF.Stave(80, 190, 870);
     [0, 1, 3, 4].forEach(line => s2.setConfigForLine(line, { visible: false }));
     s2.addClef("percussion").addTimeSignature("4/4").setContext(ctx).draw();
     new VF.StaveConnector(s1, s2).setType(VF.StaveConnector.type.BRACKET).setContext(ctx).draw();
