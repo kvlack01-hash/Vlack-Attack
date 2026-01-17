@@ -8,18 +8,19 @@
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&family=Bebas+Neue&display=swap" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        
         :root {
-            --midnight-violet: #1C0221;
-            --dusty-lavender: #7B5E7B;
-            --dusty-taupe: #938274;
-            --lime-cream: #E9EB87;
-            --light-green: #B9F18C;
+            --warm-orange: #F79256;
+            --warm-peach: #FBD1A2;
+            --warm-mint: #7DCFB6;
+            --warm-cyan: #00B2CA;
+            --warm-blue: #1D4E89;
         }
+
         
+
         body { 
             font-family: 'Montserrat', sans-serif;
-            background: var(--midnight-violet);
+            background: #000;
             min-height: 100vh;
             padding: 0;
             margin: 0;
@@ -30,13 +31,13 @@
         .container {
             max-width: 900px;
             margin: 0 auto;
-            background: var(--midnight-violet);
+            background: #000;
             min-height: 100vh;
         }
         
         /* Header */
         .header {
-            background: linear-gradient(135deg, var(--lime-cream) 0%, var(--light-green) 100%);
+            background: var(--warm-orange);
             padding: 15px 15px 12px;
             text-align: center;
             position: relative;
@@ -67,7 +68,7 @@
             font-weight: 800;
             letter-spacing: 4px;
             margin-bottom: 2px;
-            color: #000;
+            color: #000; text-shadow: 0 0 10px rgba(0,0,0,0.5);
             text-shadow: 2px 2px 0 rgba(255,255,255,0.3);
             position: relative;
             z-index: 1;
@@ -77,7 +78,7 @@
             font-size: 0.65rem;
             letter-spacing: 2px;
             text-transform: uppercase;
-            color: #000;
+            color: #000; text-shadow: 0 0 10px rgba(0,0,0,0.5);
             opacity: 0.8;
             font-weight: 700;
             position: relative;
@@ -93,7 +94,7 @@
             justify-content: center;
             align-items: center;
             overflow-x: auto;
-            border-bottom: 3px solid var(--light-green);
+            border-bottom: 3px solid var(--warm-mint);
         }
         
         /* Controls Container */
@@ -108,11 +109,11 @@
         
         .big-btn {
             width: 100%;
-            padding: 10px;
+            padding: 8px;
             border: none;
             border-radius: 8px;
             font-family: 'Bebas Neue', sans-serif;
-            font-size: 0.95rem;
+            font-size: 0.85rem;
             letter-spacing: 1.5px;
             cursor: pointer;
             transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
@@ -143,13 +144,13 @@
         .big-btn:disabled {
             opacity: 0.3;
             cursor: not-allowed;
-            background: var(--dusty-lavender) !important;
+            background: var(--warm-blue) !important;
             color: #666 !important;
         }
         
         .randomize-btn {
-            background: linear-gradient(135deg, var(--light-green) 0%, var(--lime-cream) 100%);
-            color: var(--midnight-violet);
+            background: var(--warm-mint);
+            color: #000;
             font-weight: 700;
             box-shadow: 0 4px 15px rgba(185, 241, 140, 0.4);
         }
@@ -171,14 +172,14 @@
         .kit-label {
             font-size: 0.65rem;
             font-weight: 700;
-            color: var(--dusty-taupe);
+            color: var(--warm-peach);
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
         
         select {
             padding: 10px 8px;
-            border: 2px solid var(--dusty-lavender);
+            border: 2px solid var(--warm-blue);
             border-radius: 8px;
             font-family: 'Montserrat', sans-serif;
             font-size: 0.65rem;
@@ -191,7 +192,7 @@
         
         select:focus {
             outline: none;
-            border-color: #ff6b35;
+            border-color: var(--warm-orange);
         }
         
         select:disabled {
@@ -201,8 +202,8 @@
         }
         
         .play-btn {
-            background: linear-gradient(135deg, var(--lime-cream) 0%, var(--light-green) 100%);
-            color: var(--midnight-violet);
+            background: var(--warm-orange);
+            color: #000;
             font-weight: 700;
             box-shadow: 0 4px 15px rgba(233, 235, 135, 0.4);
         }
@@ -214,7 +215,7 @@
             gap: 10px;
             margin-bottom: 10px;
             padding-bottom: 10px;
-            border-bottom: 2px solid var(--dusty-lavender);
+            border-bottom: 2px solid var(--warm-blue);
         }
         
         .slider-group {
@@ -226,7 +227,7 @@
         .slider-group label {
             font-size: 0.75rem;
             font-weight: 700;
-            color: var(--dusty-taupe);
+            color: var(--warm-peach);
             text-transform: uppercase;
             letter-spacing: 1px;
             display: flex;
@@ -237,7 +238,7 @@
         .slider-value {
             font-size: 1.2rem;
             font-weight: 700;
-            color: var(--lime-cream);
+            color: var(--warm-orange);
         }
         
         .slider-group input[type="range"] {
@@ -245,7 +246,7 @@
             height: 8px;
             border-radius: 4px;
             background: rgba(28, 2, 33, 0.5);
-            border: 2px solid var(--dusty-lavender);
+            border: 2px solid var(--warm-blue);
             outline: none;
             -webkit-appearance: none;
             cursor: pointer;
@@ -257,7 +258,7 @@
             width: 24px;
             height: 24px;
             border-radius: 50%;
-            background: linear-gradient(135deg, var(--lime-cream) 0%, var(--light-green) 100%);
+            background: var(--warm-orange);
             cursor: pointer;
             box-shadow: 0 2px 8px rgba(233, 235, 135, 0.5);
             transition: all 0.2s;
@@ -271,7 +272,7 @@
             width: 24px;
             height: 24px;
             border-radius: 50%;
-            background: linear-gradient(135deg, var(--lime-cream) 0%, var(--light-green) 100%);
+            background: var(--warm-orange);
             cursor: pointer;
             border: none;
             box-shadow: 0 2px 8px rgba(233, 235, 135, 0.5);
@@ -289,7 +290,7 @@
             align-items: center;
             margin-bottom: 10px;
             padding-bottom: 10px;
-            border-bottom: 2px solid var(--dusty-lavender);
+            border-bottom: 2px solid var(--warm-blue);
         }
         
         /* Select Buttons */
@@ -300,7 +301,7 @@
         
         .select-btn {
             padding: 8px 14px;
-            border: 2px solid var(--dusty-lavender);
+            border: 2px solid var(--warm-blue);
             background: rgba(28, 2, 33, 0.5);
             color: #ccc;
             border-radius: 8px;
@@ -314,9 +315,9 @@
         }
         
         .select-btn.active {
-            background: linear-gradient(135deg, var(--light-green) 0%, var(--lime-cream) 100%);
-            border-color: var(--light-green);
-            color: var(--midnight-violet);
+            background: var(--warm-mint);
+            border-color: var(--warm-mint);
+            color: #000;
             box-shadow: 0 4px 12px rgba(185, 241, 140, 0.3);
         }
         
@@ -327,7 +328,7 @@
         /* Lock Button */
         .lock-btn {
             padding: 8px 13px;
-            border: 2px solid var(--dusty-lavender);
+            border: 2px solid var(--warm-blue);
             background: rgba(28, 2, 33, 0.5);
             border-radius: 8px;
             font-size: 1.05rem;
@@ -351,13 +352,13 @@
             padding: 12px;
             background: rgba(123, 94, 123, 0.1);
             border-radius: 10px;
-            border: 2px solid var(--dusty-lavender);
+            border: 2px solid var(--warm-blue);
         }
         
         .section-title {
             font-size: 0.65rem;
             font-weight: 700;
-            color: var(--lime-cream);
+            color: var(--warm-orange);
             margin-bottom: 10px;
             text-transform: uppercase;
             letter-spacing: 1.5px;
@@ -389,22 +390,21 @@
             align-items: center;
             gap: 10px;
             padding: 7px 8px;
-            background: #1a1a1a;
+            background: transparent;
             border-radius: 8px;
-            border: 2px solid var(--dusty-lavender);
+            border: none;
             transition: all 0.2s;
         }
         
         .accent-toggle:has(input:checked) {
-            border-color: var(--light-green);
-            background: rgba(185, 241, 140, 0.15);
+            background: transparent;
         }
         
         .accent-toggle input[type="checkbox"] {
             width: 18px;
             height: 18px;
             cursor: pointer;
-            accent-color: var(--light-green);
+            accent-color: var(--warm-mint);
         }
         
         .accent-toggle label {
@@ -421,7 +421,7 @@
             padding: 12px;
             background: rgba(28, 2, 33, 0.5);
             border-radius: 10px;
-            border: 2px solid var(--dusty-lavender);
+            border: 2px solid var(--warm-blue);
             margin-bottom: 10px;
         }
         
@@ -433,7 +433,7 @@
         }
         
         .save-btn {
-            background: linear-gradient(135deg, var(--dusty-taupe) 0%, var(--dusty-lavender) 100%);
+            background: var(--warm-blue);
             color: #fff;
             font-weight: 700;
             box-shadow: 0 4px 15px rgba(147, 130, 116, 0.4);
@@ -444,13 +444,13 @@
             display: flex;
             justify-content: space-between;
             padding-top: 8px;
-            border-top: 1px solid var(--dusty-lavender);
+            border-top: 1px solid var(--warm-blue);
         }
         
         .text-btn {
             background: none;
             border: none;
-            color: var(--light-green);
+            color: var(--warm-mint);
             font-family: 'Montserrat', sans-serif;
             font-weight: 700;
             font-size: 0.6rem;
@@ -551,27 +551,36 @@
             </div>
         </div>
         
-        <!-- Right Hand Section -->
-        <div class="section">
-            <div class="section-title">→ Right Hand</div>
-            <div style="display: flex; flex-direction: column; gap: 15px;">
-                <div class="select-buttons">
-                    <button class="select-btn" data-element="ride">Ride</button>
-                    <button class="select-btn active" data-element="hi-hat">Hi-Hat</button>
+        <!-- Right Hand & Left Foot Row -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+            <!-- Right Hand Section -->
+            <div class="section" style="margin-bottom: 0;">
+                <div class="section-title">→ Right Hand</div>
+                <div style="display: flex; flex-direction: column; gap: 15px;">
+                    <div class="select-buttons">
+                        <button class="select-btn" data-element="ride">Ride</button>
+                        <button class="select-btn active" data-element="hi-hat">Hi-Hat</button>
+                    </div>
+                    <div class="accent-toggle">
+                        <input type="checkbox" id="accent-mode">
+                        <label for="accent-mode">Accents</label>
+                    </div>
+                    <div>
+                        <div style="font-size: 0.65rem; font-weight: 700; color: var(--warm-peach); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px;">Pattern</div>
+                        <select id="cymbal-select"></select>
+                    </div>
                 </div>
-                <div class="accent-toggle">
-                    <input type="checkbox" id="accent-mode">
-                    <label for="accent-mode">Accents</label>
-                </div>
-                <select id="cymbal-select"></select>
             </div>
-        </div>
-        
-        <!-- Left Foot Section -->
-        <div class="section">
-            <div class="section-title">← Left Foot</div>
-            <div class="section-content">
-                <select id="foot-select"></select>
+            
+            <!-- Left Foot Section -->
+            <div class="section" style="margin-bottom: 0;">
+                <div class="section-title">← Left Foot</div>
+                <div class="section-content">
+                    <div style="width: 100%;">
+                        <div style="font-size: 0.65rem; font-weight: 700; color: var(--warm-peach); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px;">Pattern</div>
+                        <select id="foot-select"></select>
+                    </div>
+                </div>
             </div>
         </div>
         
@@ -605,48 +614,48 @@ let currentMid = [];
 let activeHH = null;
 
 // --- RHYTHM DATA ---
-const tCymPlain = ['down beats', 'shuffle', 'swing', '3:2 (down)', '3:2 (up)', '3:4 v1', '3:4 v2', '3:4 v3'];
-const tCymAcc = ['shuffle', 'swing', '3:2 (down)', '3:2 (up)', '3:2 (down) shuffle', '3:2 (up) shuffle', '3:4 v1', '3:4 v2', '3:4 v3'];
+const tCymPlain = ['Down Beats', 'Shuffle', 'Swing', '3:2 (Down)', '3:2 (Up)', '3:4 V1', '3:4 V2', '3:4 V3'];
+const tCymAcc = ['Shuffle', 'Swing', '3:2 (Down)', '3:2 (Up)', '3:2 (Down) Shuffle', '3:2 (Up) Shuffle', '3:4 V1', '3:4 V2', '3:4 V3'];
 const tCym = { 
-    'down beats': [1,0,0], 'shuffle': [1,0,1], 'swing': [1,0,0,1,0,1],
-    '3:2 (down)': [1,0,1,0,1,0, 1,0,1,0,1,0], '3:2 (up)': [0,1,0,1,0,1, 0,1,0,1,0,1],
-    '3:4 v1': [1,1,1,0,1,1,1,0,1,1,1,0], '3:4 v2': [1,0,1,1,1,0,1,1,1,0,1,1], '3:4 v3': [0,1,1,1,0,1,1,1,0,1,1,1],
-    '3:2 (down) shuffle': [1,0,1,0,1,0], '3:2 (up) shuffle': [0,1,0,1,0,1]
+    'Down Beats': [1,0,0], 'Shuffle': [1,0,1], 'Swing': [1,0,0,1,0,1],
+    '3:2 (Down)': [1,0,1,0,1,0, 1,0,1,0,1,0], '3:2 (Up)': [0,1,0,1,0,1, 0,1,0,1,0,1],
+    '3:4 V1': [1,1,1,0,1,1,1,0,1,1,1,0], '3:4 V2': [1,0,1,1,1,0,1,1,1,0,1,1], '3:4 V3': [0,1,1,1,0,1,1,1,0,1,1,1],
+    '3:2 (Down) Shuffle': [1,0,1,0,1,0], '3:2 (Up) Shuffle': [0,1,0,1,0,1]
 };
-const tFoot = { 'down beats': [1,0,0], '2 and 4': [0,0,0,1,0,0], '3:2 (down)': [1,0,1,0,1,0], '3:2 (up)': [0,1,0,1,0,1] };
-const sCymPlain = ['down beats', 'up beats', 'eighth notes', 'e a', '1 e &', 'e & a', '1 & a', '1 e a'];
-const sCymAcc = ['down beats', 'up beats', '1 e &', 'e & a', '1 & a', '1 e a'];
+const tFoot = { 'Down Beats': [1,0,0], '2 and 4': [0,0,0,1,0,0], '3:2 (Down)': [1,0,1,0,1,0], '3:2 (Up)': [0,1,0,1,0,1] };
+const sCymPlain = ['Down Beats', 'Up Beats', 'Eighth Notes', 'E A', '1 E &', 'E & A', '1 & A', '1 E A'];
+const sCymAcc = ['Down Beats', 'Up Beats', '1 E &', 'E & A', '1 & A', '1 E A'];
 const sCym = {
-    'down beats': [1,0,0,0], 'up beats': [0,0,1,0], 'eighth notes': [1,0,1,0],
-    'e a': [0,1,0,1], '1 e &': [1,1,1,0], 'e & a': [0,1,1,1],
-    '1 & a': [1,0,1,1], '1 e a': [1,1,0,1]
+    'Down Beats': [1,0,0,0], 'Up Beats': [0,0,1,0], 'Eighth Notes': [1,0,1,0],
+    'E A': [0,1,0,1], '1 E &': [1,1,1,0], 'E & A': [0,1,1,1],
+    '1 & A': [1,0,1,1], '1 E A': [1,1,0,1]
 };
-const sFoot = { 'down beats': [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0], '2 and 4': [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0], 'eighth notes': [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0] };
+const sFoot = { 'Down Beats': [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0], '2 and 4': [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0], 'Eighth Notes': [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0] };
 const tMidPool = [[1,0,0], [0,1,0], [1,0,1], [0,0,1], [1,1,0], [0,1,1]];
 const sMidPool = [[1,0,0,0], [0,1,0,0], [0,0,1,0], [0,0,0,1], [1,0,1,0], [0,1,0,1], [1,1,0,0], [0,1,1,0], [0,0,1,1], [1,0,0,1], [1,1,1,0], [0,1,1,1], [1,0,1,1], [1,1,0,1]];
 
 function getFootPatternForHiHatAccents(cymbalPattern, isTriplet = false) {
     if (isTriplet) {
         const tripletFootPatterns = {
-            'shuffle': [0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0],
-            'swing': [0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0],
-            '3:2 (down)': [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0],
-            '3:2 (up)': [0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1],
-            '3:2 (down) shuffle': [0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0],
-            '3:2 (up) shuffle': [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1],
-            '3:4 v1': [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0],
-            '3:4 v2': [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0],
-            '3:4 v3': [0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0]
+            'Shuffle': [0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0],
+            'Swing': [0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0],
+            '3:2 (Down)': [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0],
+            '3:2 (Up)': [0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1],
+            '3:2 (Down) Shuffle': [0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0],
+            '3:2 (Up) Shuffle': [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1],
+            '3:4 V1': [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0],
+            '3:4 V2': [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0],
+            '3:4 V3': [0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0]
         };
         return tripletFootPatterns[cymbalPattern] || null;
     } else {
         const standardFootPatterns = {
-            'down beats': [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0],
-            'up beats': [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0],
-            '1 e &': [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0],
-            'e & a': [0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0],
-            '1 & a': [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0],
-            '1 e a': [0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1]
+            'Down Beats': [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0],
+            'Up Beats': [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0],
+            '1 E &': [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0],
+            'E & A': [0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0],
+            '1 & A': [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0],
+            '1 E A': [0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1]
         };
         return standardFootPatterns[cymbalPattern] || null;
     }
@@ -658,26 +667,26 @@ function getAccentLogic(patternName, index, isHit) {
     if (isTri) {
         const pos3 = index % 3, pos6 = index % 6, pos12 = index % 12;
         switch(patternName) {
-            case 'shuffle': return pos3 === 0;
-            case 'swing': return pos6 === 0;
-            case '3:2 (down)': return (pos12 === 0 || pos12 === 4 || pos12 === 8);
-            case '3:2 (up)': return (pos12 === 2 || pos12 === 6 || pos12 === 10);
-            case '3:2 (down) shuffle': return (pos6 === 0 || pos6 === 4);
-            case '3:2 (up) shuffle': return (pos6 === 1 || pos6 === 3);
-            case '3:4 v1': return (pos12 === 2 || pos12 === 6 || pos12 === 10);
-            case '3:4 v2': return (pos12 === 0 || pos12 === 4 || pos12 === 8);
-            case '3:4 v3': return (pos12 === 3 || pos12 === 7 || pos12 === 11);
+            case 'Shuffle': return pos3 === 0;
+            case 'Swing': return pos6 === 0;
+            case '3:2 (Down)': return (pos12 === 0 || pos12 === 4 || pos12 === 8);
+            case '3:2 (Up)': return (pos12 === 2 || pos12 === 6 || pos12 === 10);
+            case '3:2 (Down) Shuffle': return (pos6 === 0 || pos6 === 4);
+            case '3:2 (Up) Shuffle': return (pos6 === 1 || pos6 === 3);
+            case '3:4 V1': return (pos12 === 2 || pos12 === 6 || pos12 === 10);
+            case '3:4 V2': return (pos12 === 0 || pos12 === 4 || pos12 === 8);
+            case '3:4 V3': return (pos12 === 3 || pos12 === 7 || pos12 === 11);
             default: return false;
         }
     } else {
         const pos = index % 4;
         switch(patternName) {
-            case 'down beats': return pos === 0;
-            case 'up beats': return pos === 2;
-            case '1 e &': return pos === 2;
-            case 'e & a': return pos === 3;
-            case '1 & a': return pos === 0;
-            case '1 e a': return pos === 1;
+            case 'Down Beats': return pos === 0;
+            case 'Up Beats': return pos === 2;
+            case '1 E &': return pos === 2;
+            case 'E & A': return pos === 3;
+            case '1 & A': return pos === 0;
+            case '1 E A': return pos === 1;
             default: return false;
         }
     }
@@ -821,7 +830,7 @@ function generate(forceRandom = false) {
             }
             
             if (vIdx === 0 && document.getElementById('accent-mode').checked && !isTri) {
-                if (cymName === 'down beats' || cymName === 'up beats') pat = [1, 0, 1, 0];
+                if (cymName === 'Down Beats' || cymName === 'Up Beats') pat = [1, 0, 1, 0];
             }
             for (let i = 0; i < sub; i++) slice.push(pat[(b * sub + i) % pat.length]);
             
