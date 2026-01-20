@@ -335,26 +335,6 @@
             transform: scale(0.95);
         }
         
-        /* Lock Button */
-        .lock-btn {
-            padding: 8px 13px;
-            border: 2px solid var(--warm-blue);
-            background: rgba(28, 2, 33, 0.5);
-            border-radius: 8px;
-            font-size: 1.05rem;
-            cursor: pointer;
-            transition: all 0.2s;
-            min-width: 45px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .lock-btn.locked {
-            border-color: #e74c3c;
-            background: rgba(231, 76, 60, 0.2);
-            box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
-        }
         
         /* Section */
         .section {
@@ -576,17 +556,13 @@
 <div class="container">
     <!-- Header -->
     <div class="header">
-        <!-- Replace the src below with your logo file path when you save it -->
-        <!-- For now, using text styled to look handwritten -->
-        <div style="font-family: 'Brush Script MT', cursive, serif; font-size: 3rem; line-height: 1.2; color: #000; font-weight: normal;">
+        <div style="font-family: 'Montserrat', sans-serif; font-size: 2.5rem; line-height: 1.2; color: #000; font-weight: 800; letter-spacing: 2px;">
             Vlack Attack
         </div>
-        <div style="font-family: 'Brush Script MT', cursive, serif; font-size: 1.5rem; color: #000; margin-top: -10px; font-weight: normal;">
+        <div style="font-family: 'Montserrat', sans-serif; font-size: 1.2rem; color: #000; margin-top: 5px; font-weight: 600; letter-spacing: 1px;">
             Beat Randomizer
         </div>
-        <!-- To use your handwritten logo image, uncomment this and add the image file:
-        <img src="vlack_attack_logo.jpg" alt="Vlack Attack Beat Randomizer" style="max-width: 90%; height: auto;">
-        -->
+    </div>
     </div>
     
     <!-- Notation Display -->
@@ -596,10 +572,7 @@
     <div class="controls">
         <!-- Randomize Button & Lock -->
         <div class="randomize-section">
-            <div style="display: flex; gap: 15px; align-items: center;">
-                <button class="big-btn randomize-btn" id="gen-btn" style="flex: 1;">⚡ Randomize Kick/Snare</button>
-                <button class="lock-btn" id="lock-btn">🔓</button>
-            </div>
+            <button class="big-btn randomize-btn" id="gen-btn" style="width: 100%;">⚡ Randomize Kick/Snare</button>
         </div>
         
         <!-- Drum Kit & Play Button Row -->
@@ -805,10 +778,6 @@ function getElement() {
     return document.querySelector('[data-element].active').dataset.element;
 }
 
-function isLocked() {
-    return document.getElementById('lock-btn').classList.contains('locked');
-}
-
 function updateFootPatternForHiHatAccents() {
     const isAccent = document.getElementById("accent-mode").checked;
     const element = getElement();
@@ -901,7 +870,7 @@ function generate(forceRandom = false) {
     s2.addClef("percussion").addTimeSignature("4/4").setContext(ctx).draw();
     new VF.StaveConnector(s1, s2).setType(VF.StaveConnector.type.BRACKET).setContext(ctx).draw();
 
-    if (forceRandom || !isLocked() || currentMid.length === 0) {
+    if (forceRandom || currentMid.length === 0) {
         currentMid = [];
         const pool = isTri ? tMidPool : sMidPool;
         for (let i = 0; i < 4; i++) currentMid.push(pool[Math.floor(Math.random() * pool.length)]);
@@ -1204,9 +1173,6 @@ window.onload = () => {
             updateMenus();
             document.getElementById("pocket-slider").disabled = isTripletMode();
             document.getElementById('saved-beats-select').value = "";
-            if (isLocked()) {
-                document.getElementById('saved-beats-select').value = "";
-            }
             generate();
         };
     });
@@ -1217,43 +1183,23 @@ window.onload = () => {
             document.querySelectorAll('[data-element]').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             updateFootPatternForHiHatAccents();
-            if (isLocked()) {
-                document.getElementById('saved-beats-select').value = "";
-            }
             generate();
         };
     });
     
-    // Lock button
-    document.getElementById('lock-btn').onclick = function() {
-        this.classList.toggle('locked');
-        this.textContent = this.classList.contains('locked') ? '🔒' : '🔓';
-        document.getElementById('gen-btn').disabled = this.classList.contains('locked');
-        document.getElementById('saved-beats-select').value = "";
-    };
-    
     // Accent mode
     document.getElementById('accent-mode').onchange = () => {
         updateMenus();
-        if (isLocked()) {
-            document.getElementById('saved-beats-select').value = "";
-        }
         generate();
     };
     
     // Cymbal & Foot selects
     document.getElementById('cymbal-select').onchange = () => {
         updateFootPatternForHiHatAccents();
-        if (isLocked()) {
-            document.getElementById('saved-beats-select').value = "";
-        }
         generate();
     };
     
     document.getElementById('foot-select').onchange = () => {
-        if (isLocked()) {
-            document.getElementById('saved-beats-select').value = "";
-        }
         generate();
     };
     
