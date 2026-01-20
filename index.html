@@ -479,6 +479,80 @@
         
         .vf-flag { display: none !important; }
         
+        /* Save Dialog */
+        .save-dialog {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .save-dialog.active {
+            display: flex;
+        }
+        
+        .save-dialog-content {
+            background: var(--warm-blue);
+            padding: 30px;
+            border-radius: 15px;
+            border: 3px solid var(--warm-cyan);
+            box-shadow: 0 0 30px var(--warm-cyan);
+            max-width: 400px;
+            width: 90%;
+        }
+        
+        .save-dialog h3 {
+            margin: 0 0 20px 0;
+            color: var(--warm-orange);
+            font-size: 1.5rem;
+        }
+        
+        .save-dialog input {
+            width: 100%;
+            padding: 12px;
+            font-family: 'Montserrat', sans-serif;
+            font-size: 1rem;
+            font-weight: 600;
+            border: 2px solid var(--warm-mint);
+            border-radius: 8px;
+            background: #000;
+            color: #fff;
+            margin-bottom: 20px;
+        }
+        
+        .save-dialog-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .save-dialog-buttons button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+            text-transform: uppercase;
+        }
+        
+        .save-dialog-confirm {
+            background: var(--warm-mint);
+            color: #000;
+        }
+        
+        .save-dialog-cancel {
+            background: #333;
+            color: #fff;
+        }
+        
         /* Animations */
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
@@ -615,6 +689,18 @@
                 <button class="text-btn" id="delete-btn">Delete</button>
                 <button class="text-btn" id="rename-btn">Rename</button>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Save Dialog -->
+<div id="save-dialog" class="save-dialog">
+    <div class="save-dialog-content">
+        <h3>Save Beat</h3>
+        <input type="text" id="save-name-input" placeholder="Enter beat name...">
+        <div class="save-dialog-buttons">
+            <button class="save-dialog-cancel" id="save-cancel">Cancel</button>
+            <button class="save-dialog-confirm" id="save-confirm">Save</button>
         </div>
     </div>
 </div>
@@ -1279,32 +1365,56 @@ window.onload = () => {
         }
     };
     
-    // Save button
+    // Save button - show custom dialog
     document.getElementById("save-btn").onclick = () => {
-        const beats = getSavedBeats();
         const defaultName = getNextBeatName();
+        const input = document.getElementById('save-name-input');
+        const dialog = document.getElementById('save-dialog');
         
-        // Prompt for name immediately
-        const name = prompt('Save beat as:', defaultName);
+        input.value = defaultName;
+        dialog.classList.add('active');
+        input.focus();
+        input.select();
+    };
+    
+    // Save dialog - Cancel
+    document.getElementById('save-cancel').onclick = () => {
+        document.getElementById('save-dialog').classList.remove('active');
+    };
+    
+    // Save dialog - Confirm
+    document.getElementById('save-confirm').onclick = () => {
+        const name = document.getElementById('save-name-input').value.trim();
         
-        // If user cancels, don't save
-        if (!name) return;
+        if (!name) {
+            alert('Please enter a name');
+            return;
+        }
+        
+        const beats = getSavedBeats();
         
         // Check if name already exists
-        if (beats[name] && name !== defaultName) {
+        if (beats[name]) {
             if (!confirm(`A beat named "${name}" already exists. Overwrite it?`)) {
                 return;
             }
         }
         
-        // Save the beat (playback continues uninterrupted)
+        // Save the beat
         beats[name] = getCurrentBeatData();
         saveBeats(beats);
         updateSavedBeatsList();
         document.getElementById('saved-beats-select').value = name;
+        document.getElementById('save-dialog').classList.remove('active');
         
-        // Brief success message that doesn't interrupt playback
         console.log(`Beat saved as "${name}"`);
+    };
+    
+    // Allow Enter key to save
+    document.getElementById('save-name-input').onkeypress = (e) => {
+        if (e.key === 'Enter') {
+            document.getElementById('save-confirm').click();
+        }
     };
     
     // Rename button
